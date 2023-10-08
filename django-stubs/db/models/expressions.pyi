@@ -197,7 +197,7 @@ class Star(Expression): ...
 class Col(Expression):
     target: Field
     alias: str
-    contains_column_references: Literal[True]
+    contains_column_references: Literal[True]  # type: ignore[assignment]
     possibly_multivalued: Literal[False]
     def __init__(self, alias: str, target: Field, output_field: Field | None = ...) -> None: ...
 
@@ -266,8 +266,8 @@ class OrderBy(Expression):
 
 class Window(SQLiteNumericMixin, Expression):
     template: str
-    contains_aggregate: bool
-    contains_over_clause: bool
+    contains_aggregate: Literal[False]  # type: ignore[assignment]
+    contains_over_clause: Literal[True]  # type: ignore[assignment]
     partition_by: ExpressionList | None
     order_by: ExpressionList | None
     def __init__(
