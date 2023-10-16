@@ -6,7 +6,7 @@
       class Foo:
           @cached_property
           def attr(self) -> List[str]: ...
-          @cached_property  # E: Argument 1 to "cached_property" has incompatible type "Callable[[Foo, str], List[str]]"; expected "Callable[[Any], List[str]]"  [arg-type]
+          @cached_property  # E: Argument 1 to "cached_property" has incompatible type "Callable[[Foo, str], list[str]]"; expected "Callable[[Any], list[str]]"  [arg-type]
           def attr2(self, arg2: str) -> List[str]: ...
 
           reveal_type(attr)      # N: Revealed type is "django.utils.functional.cached_property[builtins.list[builtins.str]]"
@@ -17,7 +17,7 @@
 
       f = Foo()
       reveal_type(f.attr)        # N: Revealed type is "builtins.list[builtins.str]"
-      f.attr.name                # E: "List[str]" has no attribute "name"  [attr-defined]
+      f.attr.name                # E: "list[str]" has no attribute "name"  [attr-defined]
 
 -   case: str_promise_proxy
     main:  |
