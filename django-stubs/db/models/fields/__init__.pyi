@@ -16,7 +16,7 @@ from django.db.models.fields.reverse_related import ForeignObjectRel
 from django.db.models.query_utils import Q, RegisterLookupMixin
 from django.forms import Widget
 from django.utils.datastructures import DictWrapper
-from django.utils.functional import _Getter, _StrOrPromise
+from django.utils.functional import _StrOrPromise, _StrPromise
 from typing_extensions import Self, TypeAlias
 
 class Empty: ...
@@ -133,7 +133,6 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
     model: type[Model]
     name: str
     verbose_name: _StrOrPromise
-    description: str | _Getter[str]
     blank: bool
     null: bool
     unique: bool
@@ -155,6 +154,8 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
     system_check_removed_details: Any | None
     system_check_deprecated_details: Any | None
     non_db_attrs: tuple[str, ...]
+    @property
+    def description(self) -> _StrOrPromise: ...
     def __init__(
         self,
         verbose_name: _StrOrPromise | None = ...,
@@ -239,6 +240,7 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
     def value_to_string(self, obj: Model) -> str: ...
 
 class IntegerField(Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_set_type: float | int | str | Combinable
     _pyi_private_get_type: int
     _pyi_lookup_exact_type: str | int
@@ -256,11 +258,13 @@ class PositiveSmallIntegerField(PositiveIntegerRelDbTypeMixin, SmallIntegerField
 class PositiveBigIntegerField(PositiveIntegerRelDbTypeMixin, BigIntegerField[_ST, _GT]): ...
 
 class FloatField(Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_set_type: float | int | str | Combinable
     _pyi_private_get_type: float
     _pyi_lookup_exact_type: float
 
 class DecimalField(Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_set_type: str | float | decimal.Decimal | Combinable
     _pyi_private_get_type: decimal.Decimal
     _pyi_lookup_exact_type: str | decimal.Decimal
@@ -325,9 +329,12 @@ class CharField(Field[_ST, _GT]):
         db_collation: str | None = ...,
     ) -> None: ...
 
-class CommaSeparatedIntegerField(CharField[_ST, _GT]): ...
+class CommaSeparatedIntegerField(CharField[_ST, _GT]):
+    description: ClassVar[_StrPromise]
 
 class SlugField(CharField[_ST, _GT]):
+    description: ClassVar[_StrPromise]
+
     def __init__(
         self,
         verbose_name: _StrOrPromise | None = ...,
@@ -356,9 +363,11 @@ class SlugField(CharField[_ST, _GT]):
         allow_unicode: bool = ...,
     ) -> None: ...
 
-class EmailField(CharField[_ST, _GT]): ...
+class EmailField(CharField[_ST, _GT]):
+    description: ClassVar[_StrPromise]
 
 class URLField(CharField[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     def __init__(
         self,
         verbose_name: _StrOrPromise | None = ...,
@@ -388,6 +397,7 @@ class URLField(CharField[_ST, _GT]):
     ) -> None: ...
 
 class TextField(Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_set_type: str | Combinable
     _pyi_private_get_type: str
     # objects are converted to string before comparison
@@ -421,6 +431,7 @@ class TextField(Field[_ST, _GT]):
     ) -> None: ...
 
 class BooleanField(Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_set_type: bool | Combinable
     _pyi_private_get_type: bool
     _pyi_lookup_exact_type: bool
@@ -431,10 +442,12 @@ class NullBooleanField(BooleanField[_ST, _GT]):
     _pyi_lookup_exact_type: bool | None  # type: ignore[assignment]
 
 class IPAddressField(Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_set_type: str | Combinable
     _pyi_private_get_type: str
 
 class GenericIPAddressField(Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_set_type: str | int | Callable[..., Any] | Combinable
     _pyi_private_get_type: str
 
@@ -468,6 +481,7 @@ class GenericIPAddressField(Field[_ST, _GT]):
 class DateTimeCheckMixin: ...
 
 class DateField(DateTimeCheckMixin, Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_set_type: str | date | Combinable
     _pyi_private_get_type: date
     _pyi_lookup_exact_type: str | date
@@ -500,6 +514,7 @@ class DateField(DateTimeCheckMixin, Field[_ST, _GT]):
     ) -> None: ...
 
 class TimeField(DateTimeCheckMixin, Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_set_type: str | time | real_datetime | Combinable
     _pyi_private_get_type: time
     auto_now: bool
@@ -535,6 +550,7 @@ class DateTimeField(DateField[_ST, _GT]):
     _pyi_lookup_exact_type: str | real_datetime
 
 class UUIDField(Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_set_type: str | uuid.UUID
     _pyi_private_get_type: uuid.UUID
     _pyi_lookup_exact_type: uuid.UUID | str
@@ -567,6 +583,7 @@ class UUIDField(Field[_ST, _GT]):
     ) -> None: ...
 
 class FilePathField(Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     path: Any
     match: str | None
     recursive: bool
@@ -602,9 +619,11 @@ class FilePathField(Field[_ST, _GT]):
     ) -> None: ...
 
 class BinaryField(Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_get_type: bytes | memoryview
 
 class DurationField(Field[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_get_type: timedelta
 
 class AutoFieldMixin:

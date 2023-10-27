@@ -6,13 +6,14 @@ from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.models import lookups
 from django.db.models.lookups import PostgresOperatorLookup, Transform
 from django.db.models.sql.compiler import SQLCompiler
-from django.utils.functional import _StrOrPromise
+from django.utils.functional import _StrOrPromise, _StrPromise
 from typing_extensions import Self
 
 from . import Field
 from .mixins import CheckFieldDefaultMixin
 
 class JSONField(CheckFieldDefaultMixin, Field):
+    description: _StrPromise
     encoder: type[json.JSONEncoder] | None
     decoder: type[json.JSONDecoder] | None
     def __init__(

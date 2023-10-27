@@ -1,9 +1,12 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from django.db.models import Field, Transform
 from django.db.models.fields.mixins import CheckFieldDefaultMixin
+from django.utils.functional import _StrPromise
 
 class HStoreField(CheckFieldDefaultMixin, Field):
+    description: ClassVar[_StrPromise]
+
     def get_transform(self, name: str) -> Any: ...
 
 class KeyTransform(Transform):

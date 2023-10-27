@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable
-from typing import Any, Protocol, TypeVar, overload
+from typing import Any, ClassVar, Protocol, TypeVar, overload
 
 from django.core import validators  # due to weird mypy.stubtest error
 from django.core.files.base import File
@@ -9,7 +9,7 @@ from django.db.models.base import Model
 from django.db.models.fields import Field, _ErrorMessagesMapping, _FieldChoices
 from django.db.models.query_utils import DeferredAttribute
 from django.utils._os import _PathCompatible
-from django.utils.functional import _StrOrPromise
+from django.utils.functional import _StrOrPromise, _StrPromise
 from typing_extensions import Self
 
 class FieldFile(File):
@@ -41,6 +41,7 @@ class _UploadToCallable(Protocol[_M]):
     def __call__(self, __instance: _M, __filename: str) -> _PathCompatible: ...
 
 class FileField(Field):
+    description: ClassVar[_StrPromise]
     storage: Storage
     upload_to: _PathCompatible | _UploadToCallable
     def __init__(

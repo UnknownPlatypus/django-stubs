@@ -50,6 +50,4 @@ class ArrayField(CheckFieldDefaultMixin, Field[_ST, _GT]):
         validators: Iterable[_ValidatorCallable] = ...,
         error_messages: _ErrorMessagesMapping | None = ...,
     ) -> None: ...
-    @property
-    def description(self) -> str: ...  # type: ignore[override]
     def get_transform(self, name: Any) -> type[Transform] | None: ...
