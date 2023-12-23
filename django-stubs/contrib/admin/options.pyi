@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, Protocol, TypeVar
 
 from django import forms
 from django.contrib.admin.filters import FieldListFilter, ListFilter
@@ -74,7 +74,13 @@ _ListFilterT: TypeAlias = (
 # Generic type specifically for models, for use in BaseModelAdmin and subclasses
 # https://github.com/typeddjango/django-stubs/issues/482
 _ModelT = TypeVar("_ModelT", bound=Model)
+
 _DisplayT: TypeAlias = _ListOrTuple[str | Callable[[_ModelT], str | bool]]
+
+_ModelT_contra = TypeVar("_ModelT_contra", bound=Model, contravariant=True)
+
+class ViewOnSiteProtocol(Protocol, Generic[_ModelT_contra]):
+    def __call__(self, obj: _ModelT_contra) -> str: ...
 
 class BaseModelAdmin(Generic[_ModelT]):
     autocomplete_fields: _ListOrTuple[str]
@@ -91,7 +97,11 @@ class BaseModelAdmin(Generic[_ModelT]):
     readonly_fields: _ListOrTuple[str]
     ordering: _ListOrTuple[str] | None
     sortable_by: _ListOrTuple[str] | None
-    view_on_site: bool | Callable[[_ModelT], str]
+    # view_on_site: bool | Callable[[_ModelT], str]
+    view_on_site: ViewOnSiteProtocol[_ModelT] | bool
+    # view_on_site: bool | Callable[[BaseModelAdmin[_ModelT], _ModelT], str]
+    # def view_on_site(self, obj: _ModelT) -> str: ...
+
     show_full_result_count: bool
     checks_class: Any
     model: type[_ModelT]

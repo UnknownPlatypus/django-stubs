@@ -151,3 +151,26 @@
 
       class A(ModelAdmin[TestModel]):
           model = int  # E: Incompatible types in assignment (expression has type "Type[int]", base class "ModelAdmin" defined the type as "Type[TestModel]")  [assignment]
+
+-   case: test_view_on_site
+    main: |
+        from django.contrib.admin import ModelAdmin
+        from django.db import models
+
+        class TestModel(models.Model):
+            web_url = "a"
+
+        class TestStaticAdmin(ModelAdmin[TestModel]):
+            @staticmethod
+            def view_on_site(obj: TestModel) -> str:
+                return obj.web_url
+
+        class TestAdmin(ModelAdmin[TestModel]):
+            def view_on_site(self, obj: TestModel) -> str:
+                return obj.web_url
+
+        class TestLambdaAdmin(ModelAdmin[TestModel]):
+            view_on_site = lambda obj: obj.web_url
+
+        class TestBoolAdmin(ModelAdmin[TestModel]):
+            view_on_site = True
