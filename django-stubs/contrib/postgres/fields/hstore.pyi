@@ -5,8 +5,11 @@ from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.models import Field, TextField, Transform
 from django.db.models.fields.mixins import CheckFieldDefaultMixin
 from django.db.models.sql.compiler import SQLCompiler, _AsSqlType
+from django.utils.functional import _StrPromise
 
 class HStoreField(CheckFieldDefaultMixin, Field):
+    description: ClassVar[_StrPromise]
+
     def get_transform(self, name: str) -> Any: ...
 
 class KeyTransform(Transform):

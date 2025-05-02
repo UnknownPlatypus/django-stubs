@@ -195,7 +195,6 @@ django.contrib.gis.db.models.BooleanField.formfield
 django.contrib.gis.db.models.Case.as_sql
 django.contrib.gis.db.models.Case.allowed_default
 django.contrib.gis.db.models.CharField.cast_db_type
-django.contrib.gis.db.models.CharField.description
 django.contrib.gis.db.models.CharField.formfield
 django.contrib.gis.db.models.CheckConstraint.validate
 django.contrib.gis.db.models.Count.__init__
@@ -225,7 +224,6 @@ django.contrib.gis.db.models.Field.clone
 django.contrib.gis.db.models.Field.db_returning
 django.contrib.gis.db.models.Field.db_tablespace
 django.contrib.gis.db.models.Field.db_type_suffix
-django.contrib.gis.db.models.Field.description
 django.contrib.gis.db.models.Field.descriptor_class
 django.contrib.gis.db.models.Field.error_messages
 django.contrib.gis.db.models.Field.get_db_converters
@@ -551,7 +549,6 @@ django.db.models.BooleanField.formfield
 django.db.models.Case.as_sql
 django.db.models.Case.allowed_default
 django.db.models.CharField.cast_db_type
-django.db.models.CharField.description
 django.db.models.CharField.formfield
 django.db.models.CheckConstraint.validate
 django.db.models.Count.__init__
@@ -579,7 +576,6 @@ django.db.models.Field.clone
 django.db.models.Field.db_returning
 django.db.models.Field.db_tablespace
 django.db.models.Field.db_type_suffix
-django.db.models.Field.description
 django.db.models.Field.descriptor_class
 django.db.models.Field.error_messages
 django.db.models.Field.get_db_converters
@@ -742,7 +738,6 @@ django.db.models.fields.BigIntegerField.formfield
 django.db.models.fields.BinaryField.get_placeholder
 django.db.models.fields.BooleanField.formfield
 django.db.models.fields.CharField.cast_db_type
-django.db.models.fields.CharField.description
 django.db.models.fields.CharField.formfield
 django.db.models.fields.DateField.contribute_to_class
 django.db.models.fields.DateField.formfield
@@ -766,7 +761,6 @@ django.db.models.fields.Field.clone
 django.db.models.fields.Field.db_returning
 django.db.models.fields.Field.db_tablespace
 django.db.models.fields.Field.db_type_suffix
-django.db.models.fields.Field.description
 django.db.models.fields.Field.descriptor_class
 django.db.models.fields.Field.error_messages
 django.db.models.fields.Field.get_db_converters

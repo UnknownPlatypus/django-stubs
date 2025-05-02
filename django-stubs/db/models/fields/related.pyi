@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, Generic, Literal, TypeVar, overload
+from typing import Any, ClassVar, Generic, Literal, TypeVar, overload
 from uuid import UUID
 
 from django.core import validators  # due to weird mypy.stubtest error
@@ -19,7 +19,7 @@ from django.db.models.fields.reverse_related import ManyToOneRel as ManyToOneRel
 from django.db.models.fields.reverse_related import OneToOneRel as OneToOneRel
 from django.db.models.query_utils import FilteredRelation, PathInfo, Q
 from django.utils.choices import _Choices
-from django.utils.functional import _StrOrPromise, cached_property
+from django.utils.functional import _StrOrPromise, _StrPromise, cached_property
 from typing_extensions import Self
 
 RECURSIVE_RELATIONSHIP_CONSTANT: Literal["self"]
@@ -146,6 +146,7 @@ class ForeignObject(RelatedField[_ST, _GT]):
     def get_reverse_joining_fields(self) -> tuple[tuple[Field, Field], ...]: ...
 
 class ForeignKey(ForeignObject[_ST, _GT]):
+    description: ClassVar[_StrPromise]
     _pyi_private_set_type: Any | Combinable
     _pyi_private_get_type: Any
 
