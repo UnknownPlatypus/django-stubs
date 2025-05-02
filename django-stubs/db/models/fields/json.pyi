@@ -8,7 +8,7 @@ from django.db.models.expressions import Expression
 from django.db.models.fields import TextField
 from django.db.models.lookups import PostgresOperatorLookup, Transform
 from django.db.models.sql.compiler import SQLCompiler
-from django.utils.functional import _StrOrPromise
+from django.utils.functional import _StrOrPromise, _StrPromise
 from typing_extensions import Self
 
 from . import Field
@@ -20,6 +20,7 @@ _ST = TypeVar("_ST", contravariant=True, default=Any)
 _GT = TypeVar("_GT", covariant=True, default=Any)
 
 class JSONField(CheckFieldDefaultMixin, Field[_ST, _GT]):
+    description: _StrPromise
     encoder: type[json.JSONEncoder] | None
     decoder: type[json.JSONDecoder] | None
     def __init__(

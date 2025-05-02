@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable
-from typing import Any, Protocol, TypeVar, overload, type_check_only
+from typing import Any, ClassVar, Protocol, TypeVar, overload, type_check_only
 
 from django.core import validators  # due to weird mypy.stubtest error
 from django.core.files.base import File
@@ -50,6 +50,7 @@ class _UploadToCallable(Protocol[_M]):
     def __call__(self, instance: _M, filename: str, /) -> _PathCompatible: ...
 
 class FileField(Field):
+    description: ClassVar[_StrOrPromise]
     storage: Storage
     upload_to: _PathCompatible | _UploadToCallable
     def __init__(

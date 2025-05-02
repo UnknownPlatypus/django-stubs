@@ -7,6 +7,8 @@ from django.db.models.fields.mixins import CheckFieldDefaultMixin
 from django.db.models.sql.compiler import SQLCompiler, _AsSqlType
 
 class HStoreField(CheckFieldDefaultMixin, Field):
+    description: ClassVar[_StrOrPromise]
+
     def get_transform(self, name: str) -> Any: ...
 
 class KeyTransform(Transform):

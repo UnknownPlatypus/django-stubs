@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, Generic, Literal, TypeVar, overload
+from typing import Any, ClassVar, Generic, Literal, TypeVar, overload
 from uuid import UUID
 
 from django.core import validators  # due to weird mypy.stubtest error
@@ -146,6 +146,7 @@ class ForeignObject(RelatedField[_ST, _GT]):
     def get_reverse_joining_fields(self) -> tuple[tuple[Field, Field], ...]: ...
 
 class ForeignKey(ForeignObject[_ST, _GT]):
+    description: ClassVar[_StrOrPromise]
     _pyi_private_set_type: Any | Combinable
     _pyi_private_get_type: Any
 

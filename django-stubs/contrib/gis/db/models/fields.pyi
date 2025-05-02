@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, NamedTuple, TypeVar
+from typing import Any, ClassVar, NamedTuple, TypeVar
 
 from django.contrib.gis import forms
 from django.contrib.gis.geos import (
@@ -32,6 +32,7 @@ class SRIDCacheEntry(NamedTuple):
 def get_srid_info(srid: int, connection: Any) -> SRIDCacheEntry: ...
 
 class BaseSpatialField(Field[_ST, _GT]):
+    description: ClassVar[_StrOrPromise]
     form_class: type[forms.GeometryField]
     geom_type: str
     geom_class: type[GEOSGeometry] | None
@@ -179,6 +180,7 @@ class GeometryCollectionField(GeometryField[_ST, _GT]):
     form_class: type[forms.GeometryCollectionField]
 
 class ExtentField(Field):
+    description: ClassVar[_StrOrPromise]
     def get_internal_type(self) -> Any: ...
 
 class RasterField(BaseSpatialField):
