@@ -1,3 +1,17 @@
+-   case: form_fields
+    main: |
+        from typing import Any, Tuple
+        from django import forms
+
+        class F(forms.Form):
+            f = forms.ChoiceField(choices=())
+
+            def __init__(self, *args: Any, choices: Tuple[str, ...], **kwargs: Any) -> None:
+                super().__init__(*args, **kwargs)
+
+                self.fields["f"].choices = choices
+                self.fields["f"].widget.choices = self.fields["f"].choices
+
 -   case: no_incompatible_meta_nested_class_false_positive
     main: |
         from django import forms

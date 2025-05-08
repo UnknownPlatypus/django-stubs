@@ -246,6 +246,7 @@ class NewSemanalDjangoPlugin(Plugin):
 
     def get_attribute_hook(self, fullname: str) -> Callable[[AttributeContext], MypyType] | None:
         class_name, _, attr_name = fullname.rpartition(".")
+        breakpoint()
 
         # Lookup of a settings variable
         if class_name == fullnames.DUMMY_SETTINGS_BASE_CLASS:
