@@ -1,5 +1,5 @@
 from mypy.plugin import MethodContext
-from mypy.types import AnyType, Instance, ProperType, TypeOfAny, get_proper_type
+from mypy.types import AnyType, Instance, ProperType, Type, TypeOfAny, get_proper_type
 from mypy.types import Type as MypyType
 
 from mypy_django_plugin.django.context import DjangoContext
@@ -10,10 +10,6 @@ from mypy_django_plugin.lib import fullnames, helpers
 def typecheck_queryset_filter(ctx: MethodContext, django_context: DjangoContext) -> MypyType:
     # Expected formal arguments for filter methods are `*args` and `**kwargs`. We'll only typecheck
     # `**kwargs`, which means that `arg_names[1]` is what we're interested in.
-
-    lookup_kwargs = ctx.arg_names[1] if len(ctx.arg_names) >= 2 else []
-    provided_lookup_types = ctx.arg_types[1] if len(ctx.arg_types) >= 2 else []
-
     if (
         not isinstance(ctx.type, Instance)
         or not ctx.type.args
@@ -22,20 +18,25 @@ def typecheck_queryset_filter(ctx: MethodContext, django_context: DjangoContext)
     ):
         return ctx.default_return_type
 
+    return_type = refine_queryset_type(ctx.default_return_type, model_type)
+
     api = helpers.get_typechecker_api(ctx)
     manager_info = ctx.type.type
     model_cls_fullname = helpers.get_manager_to_model(manager_info) or model_type.type.fullname
     model_info = helpers.lookup_fully_qualified_typeinfo(api, model_cls_fullname)
     if model_info is None:
-        return ctx.default_return_type
+        return return_type
+
     model_cls = (
         django_context.get_model_class_by_fullname(model_info.bases[0].type.fullname)
         if helpers.is_annotated_model(model_info)
         else django_context.get_model_class_by_fullname(model_cls_fullname)
     )
     if model_cls is None:
-        return ctx.default_return_type
+        return return_type
 
+    lookup_kwargs = ctx.arg_names[1] if len(ctx.arg_names) >= 2 else []
+    provided_lookup_types = ctx.arg_types[1] if len(ctx.arg_types) >= 2 else []
     for lookup_kwarg, provided_type in zip(lookup_kwargs, provided_lookup_types, strict=False):
         if lookup_kwarg is None:
             continue
@@ -54,7 +55,7 @@ def typecheck_queryset_filter(ctx: MethodContext, django_context: DjangoContext)
         if isinstance(provided_type, Instance) and helpers.has_any_of_bases(
             provided_type.type, (fullnames.MANAGER_CLASS_FULLNAME, fullnames.QUERYSET_CLASS_FULLNAME)
         ):
-            return ctx.default_return_type
+            return return_type
 
         helpers.check_types_compatible(
             ctx,
@@ -63,7 +64,7 @@ def typecheck_queryset_filter(ctx: MethodContext, django_context: DjangoContext)
             error_message=f"Incompatible type for lookup {lookup_kwarg!r}:",
         )
 
-    return ctx.default_return_type
+    return return_type
 
 
 def resolve_combinable_type(combinable_type: Instance, django_context: DjangoContext) -> ProperType:
@@ -72,3 +73,24 @@ def resolve_combinable_type(combinable_type: Instance, django_context: DjangoCon
         return AnyType(TypeOfAny.explicit)
 
     return django_context.resolve_f_expression_type(combinable_type)
+
+
+def refine_queryset_type(default_return_type: Type, model_type: Instance) -> MypyType:
+    """
+    Refine queryset type based on the model type.
+    This ensures user defined custom queryset with no explicit generic type will be
+    adjusted correctly based on the current queryset. For ex:
+
+        class MyQuerySet(models.QuerySet):
+            ...
+
+    """
+    default_return_type = get_proper_type(default_return_type)
+    if (
+        not isinstance(default_return_type, Instance)
+        or default_return_type.args
+        or not default_return_type.type.has_base(fullnames.QUERYSET_CLASS_FULLNAME)
+    ):
+        return default_return_type
+
+    return helpers.reparametrize_instance(default_return_type, [model_type, model_type])

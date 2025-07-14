@@ -247,6 +247,7 @@ def parse_bool(expr: Expression) -> bool | None:
 
 
 def has_any_of_bases(info: TypeInfo, bases: Iterable[str]) -> bool:
+    # TODO: simplify to use Any
     for base_fullname in bases:
         if info.has_base(base_fullname):
             return True

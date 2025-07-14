@@ -87,6 +87,16 @@ This mode leads to several known problems (stubs do not show up or have strange 
 
 **Important**: right now we only run `stubtest` on Python 3.12 (because it is the latest released version at the moment), any other versions might generate different outputs. Any work to create per-version allowlists is welcome.
 
+## Debugging plugin code
+
+For yml tests, we use a dedicated [pytest plugin](https://github.com/typeddjango/pytest-mypy-plugins) that is by default
+running mypy in a subprocess, making it difficult to debug.
+To avoid that, run pytest with the `--mypy-same-process` flag.
+
+```shell
+pytest --mypy-same-process tests/typecheck/managers/querysets/test_annotate.yml
+```
+
 ## Submission Guidelines
 
 The workflow for contributions is fairly simple:

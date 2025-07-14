@@ -420,3 +420,42 @@
       content: |
         from django.db import models
         class Blog(models.Model): pass
+
+- case: test_annotate_custom_manager
+  main: |
+    from myapp.models import Artisan, ExplicitArtisan
+    from django.contrib.gis.db.models.functions import Distance
+
+    reveal_type(Artisan.objects.filter(foo="12").annotate(distance=10))
+    reveal_type(Artisan.objects.annotate(distance=10).filter(foo="12"))
+    reveal_type(ExplicitArtisan.objects.filter(foo="12").annotate(distance=10))
+    reveal_type(ExplicitArtisan.objects.annotate(distance=10).filter(foo="12"))
+  out: |
+    main:4: note: Revealed type is "myapp.models.MyQuerySet[myapp.models.Artisan@AnnotatedWith[TypedDict({'distance': Any})], myapp.models.Artisan@AnnotatedWith[TypedDict({'distance': Any})]]"
+    main:5: note: Revealed type is "myapp.models.MyQuerySet[myapp.models.Artisan@AnnotatedWith[TypedDict({'distance': Any})], myapp.models.Artisan@AnnotatedWith[TypedDict({'distance': Any})]]"
+    main:6: note: Revealed type is "myapp.models.ExplicitArtisanQuerySet[myapp.models.ExplicitArtisan@AnnotatedWith[TypedDict({'distance': Any})], myapp.models.ExplicitArtisan@AnnotatedWith[TypedDict({'distance': Any})]]"
+    main:7: note: Revealed type is "myapp.models.ExplicitArtisanQuerySet[myapp.models.ExplicitArtisan@AnnotatedWith[TypedDict({'distance': Any})], myapp.models.ExplicitArtisan@AnnotatedWith[TypedDict({'distance': Any})]]"
+  installed_apps:
+    - myapp
+  files:
+    - path: myapp/__init__.py
+    - path: myapp/models.py
+      content: |
+        from django.db import models
+
+        class MyQuerySet(models.QuerySet): ...
+        ArtisanManager = models.Manager.from_queryset(MyQuerySet)
+
+        class Artisan(models.Model):
+            foo = models.CharField(max_length=100)
+
+            objects = ArtisanManager()
+
+
+        class ExplicitArtisanQuerySet(models.QuerySet["ExplicitArtisan"]): ...
+        ExplicitArtisanManager = models.Manager.from_queryset(ExplicitArtisanQuerySet)
+
+        class ExplicitArtisan(models.Model):
+            foo = models.CharField(max_length=100)
+
+            objects = ExplicitArtisanManager()
