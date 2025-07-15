@@ -38,6 +38,17 @@ def _extract_model_type_from_queryset(queryset_type: Instance, api: TypeChecker)
 
 
 def determine_proper_manager_type(ctx: FunctionContext) -> MypyType:
+    """
+    Handles automatic binding of the current model to the manager
+
+        class Foo(models.Model):
+            objects = models.Manager()
+        class Sub(Base):
+            pass
+
+        Foo.objects # models.Manager[Foo]
+        Sub.objects # models.Manager[Sub]
+    """
     default_return_type = get_proper_type(ctx.default_return_type)
     assert isinstance(default_return_type, Instance)
 
