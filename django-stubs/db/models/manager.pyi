@@ -8,7 +8,7 @@ from django.db.models.query import QuerySet, RawQuerySet
 from typing_extensions import Self
 
 _T = TypeVar("_T", bound=Model, covariant=True)
-_QS = TypeVar("_QS", bound=QuerySet[_T], covariant=True)
+_QS = TypeVar("_QS", bound=QuerySet[Any], covariant=True, default=QuerySet[_T])
 
 class BaseManager(Generic[_T, _QS]):
     creation_counter: int
