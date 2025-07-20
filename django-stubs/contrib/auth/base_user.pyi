@@ -8,7 +8,7 @@ from django.db.models.fields import BooleanField
 from django.db.models.query import QuerySet
 
 _T = TypeVar("_T", bound=Model)
-_QS = TypeVar("_QS", bound=QuerySet[_T])
+_QS = TypeVar("_QS", bound=QuerySet[Any], covariant=True, default=QuerySet[_T])
 
 class BaseUserManager(models.Manager[_T, _QS]):
     @classmethod
