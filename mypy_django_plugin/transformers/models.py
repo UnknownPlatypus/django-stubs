@@ -497,8 +497,24 @@ class AddDefaultManagerAttribute(ModelClassInitializer):
                     return None
             default_manager_info = generated_manager_info
 
-        default_manager = helpers.fill_manager(default_manager_info, Instance(self.model_classdef.info, []))
-        self.add_new_node_to_model_class("_default_manager", default_manager, is_classvar=True)
+        if default_manager_cls:
+            default_queryset_cls = default_manager_cls()._queryset_class
+            default_queryset_fullname = helpers.get_class_fullname(default_queryset_cls)
+        else:
+            default_manager = helpers.fill_manager(default_manager_info, Instance(self.model_classdef.info, []))
+            self.add_new_node_to_model_class("_default_manager", default_manager, is_classvar=True)
+            return None
+
+        try:
+            default_queryset_info = self.lookup_typeinfo_or_incomplete_defn_error(default_queryset_fullname)
+            model_instance = Instance(self.model_classdef.info, [])
+            default_queryset = Instance(default_queryset_info, [model_instance, model_instance])
+            default_manager = Instance(default_manager_info, [model_instance, default_queryset])
+            self.add_new_node_to_model_class("_default_manager", default_manager, is_classvar=True)
+        except helpers.IncompleteDefnException:
+            default_manager = helpers.fill_manager(default_manager_info, Instance(self.model_classdef.info, []))
+            self.add_new_node_to_model_class("_default_manager", default_manager, is_classvar=True)
+            return None
 
 
 class AddReverseLookups(ModelClassInitializer):
