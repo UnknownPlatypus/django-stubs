@@ -568,4 +568,10 @@ def get_model_from_expression(
 
 
 def fill_manager(manager: TypeInfo, typ: MypyType) -> Instance:
+    """
+    The Manager type might not be generic, for ex with user defined managers:
+
+        class CustomManager(models.Manager["MyModel"]):
+            pass
+    """
     return Instance(manager, [typ] if manager.is_generic() else [])

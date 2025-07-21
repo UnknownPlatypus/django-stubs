@@ -1,3 +1,31 @@
+-   case: test_every_model_has_default_manager_queryset_available
+    main: |
+        from myapp.models import User, AbstractUser, AbstractUserWithDefaultManager
+
+        reveal_type(AbstractUser._default_manager)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.AbstractUser, django.db.models.query.QuerySet[myapp.models.AbstractUser, myapp.models.AbstractUser]]"
+        reveal_type(AbstractUserWithDefaultManager._default_manager)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.AbstractUserWithDefaultManager, django.db.models.query.QuerySet[myapp.models.AbstractUserWithDefaultManager, myapp.models.AbstractUserWithDefaultManager]]"
+        reveal_type(User._default_manager)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.User, django.db.models.query.QuerySet[myapp.models.User, myapp.models.User]]"
+        reveal_type(User._default_manager.all())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.User, myapp.models.User]"
+        reveal_type(User._default_manager.get()) # N: Revealed type is "myapp.models.User"
+    installed_apps:
+        - myapp
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+                class User(models.Model):
+                    pass
+
+                class AbstractUser(models.Model):
+                    class Meta:
+                        abstract = True
+
+                class AbstractUserWithDefaultManager(models.Model):
+                    objects = models.Manager()
+                    class Meta:
+                        abstract = True
+
 -   case: test_every_model_has_objects_queryset_available
     main: |
         from myapp.models import User
@@ -101,7 +129,7 @@
 -   case: if_default_manager_name_is_passed_set_default_manager_to_it
     main: |
         from myapp.models import MyModel
-        reveal_type(MyModel._default_manager)  # N: Revealed type is "myapp.models.Manager2[myapp.models.MyModel]"
+        reveal_type(MyModel._default_manager)  # N: Revealed type is "myapp.models.Manager2[myapp.models.MyModel, django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
     installed_apps:
         - myapp
     files:

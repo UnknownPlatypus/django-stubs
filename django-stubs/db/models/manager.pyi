@@ -38,9 +38,9 @@ class BaseManager(Generic[_T, _QS]):
     def all(self) -> _QS: ...
 
 class Manager(BaseManager[_T, _QS]):
+    _queryset_class: type[_QS]
     # `from_queryset` is redeclared here because Self cannot have type arguments
     # ie `def from_queryset(...) -> type[Self[_T, _QS]]` is not valid (mypy raises an error, but resolves type correctly)
-
     @classmethod
     def from_queryset(
         cls, queryset_class: type[QuerySet[_T]], class_name: str | None = None

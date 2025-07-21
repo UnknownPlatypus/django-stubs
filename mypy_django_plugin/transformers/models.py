@@ -13,6 +13,7 @@ from mypy.nodes import (
     Argument,
     AssignmentStmt,
     CallExpr,
+    ClassDef,
     Context,
     Expression,
     FakeInfo,
@@ -206,6 +207,19 @@ class ModelClassInitializer:
         queryset_info.metaclass_type = queryset_info.calculate_metaclass_type()
 
         return queryset_info
+
+    def build_manager_instance(
+        self, manager_cls: type["Manager[Any]"], manager_info: TypeInfo, model_cls_def: ClassDef
+    ) -> Instance:
+        """Builds an Instance of a Manager, filling in the Model and QuerySet type if possible."""
+        model_instance = Instance(model_cls_def.info, [])
+        try:
+            queryset_fullname = helpers.get_class_fullname(klass=manager_cls()._queryset_class)
+            queryset_info = self.lookup_typeinfo_or_incomplete_defn_error(queryset_fullname)
+            queryset_instance = Instance(queryset_info, [model_instance, model_instance])
+            return Instance(manager_info, [model_instance, queryset_instance])
+        except helpers.IncompleteDefnException:
+            return helpers.fill_manager(manager_info, model_instance)
 
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
         raise NotImplementedError(f"Implement this in subclass {self.__class__.__name__}")
@@ -479,6 +493,9 @@ class AddDefaultManagerAttribute(ModelClassInitializer):
         if "_default_manager" in self.model_classdef.info.names:
             return None
 
+        if not model_cls._meta.default_manager:
+            return None
+
         default_manager_cls = model_cls._meta.default_manager.__class__
         default_manager_fullname = helpers.get_class_fullname(default_manager_cls)
 
@@ -497,7 +514,7 @@ class AddDefaultManagerAttribute(ModelClassInitializer):
                     return None
             default_manager_info = generated_manager_info
 
-        default_manager = helpers.fill_manager(default_manager_info, Instance(self.model_classdef.info, []))
+        default_manager = self.build_manager_instance(default_manager_cls, default_manager_info, self.model_classdef)
         self.add_new_node_to_model_class("_default_manager", default_manager, is_classvar=True)
 
 
