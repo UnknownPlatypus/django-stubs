@@ -1,3 +1,22 @@
+-   case: test_simple_manager
+    main: |
+        from myapp.models import MyModel
+        from django.db.models.manager import Manager
+        from django.db.models.query import QuerySet
+
+        reveal_type(Manager) # N: Revealed type is "def [_T <: django.db.models.base.Model, _QS <: django.db.models.query.QuerySet[Any, Any] = django.db.models.query.QuerySet[_T`1, _T`1]] () -> django.db.models.manager.Manager[_T`1, _QS`2 = django.db.models.query.QuerySet[_T`1, _T`1]]"
+        reveal_type(Manager[MyModel]())  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.MyModel, django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
+        reveal_type(Manager[MyModel, QuerySet[MyModel]]())  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.MyModel, django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
+    installed_apps:
+        - myapp
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+                class MyModel(models.Model):
+                    pass
+
 -   case: test_every_model_has_objects_queryset_available
     main: |
         from myapp.models import User
