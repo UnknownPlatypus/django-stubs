@@ -76,6 +76,32 @@
                 unique_together = {1: 2}  # E: Incompatible types in assignment (expression has type "dict[int, int]", base class "TypedModelMeta" defined the type as "Sequence[Sequence[str]]")  [assignment]
                 unknown_attr = True  # can't check this
 
+-   case: base_automatic_model_meta_incompatible_types
+    main: |
+        from django.db import models
+        from django.contrib.postgres.fields import ArrayField
+        from django_stubs_ext.db.models import TypedModelMeta
+
+
+        class MyModel(models.Model):
+            class Meta(TypedModelMeta):
+                abstract = 7  # E: Incompatible types in assignment (expression has type "int", base class "TypedModelMeta" defined the type as "bool")  [assignment]
+
+        class MyModel2(models.Model):
+            class Meta:
+                abstract = 7  # E: Incompatible types in assignment (expression has type "int", base class "TypedModelMeta" defined the type as "bool")  [assignment]
+
+        class MyModel3(models.Model):
+            class Meta(MyModel2.Meta):
+                abstract = 7  # E: Incompatible types in assignment (expression has type "int", base class "TypedModelMeta" defined the type as "bool")  [assignment]
+
+        class MyModel5(models.Model):
+            class Meta(MyModel.Meta, TypedModelMeta):
+                abstract = 7  # E: Incompatible types in assignment (expression has type "int", base class "TypedModelMeta" defined the type as "bool")  [assignment]
+
+        class Random:
+            class Meta:
+                abstract = 7 # Should not trigger anything, we are not in a model class
 
 -   case: instantiate_abstract_model
     main: |

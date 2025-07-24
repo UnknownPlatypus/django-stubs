@@ -7,6 +7,7 @@ from django.db.models import Manager, Model
 from django.db.models.fields import DateField, DateTimeField, Field
 from django.db.models.fields.reverse_related import ForeignObjectRel, ManyToManyRel, OneToOneRel
 from mypy.checker import TypeChecker
+from mypy.mro import MroError, calculate_mro
 from mypy.nodes import (
     ARG_STAR2,
     MDEF,
@@ -273,6 +274,23 @@ class InjectAnyAsBaseForNestedMeta(ModelClassInitializer):
         if meta_node is None:
             return None
         meta_node.fallback_to_any = True
+
+        typed_model_meta_info = self.lookup_typeinfo("django_stubs_ext.db.models.TypedModelMeta")
+        if typed_model_meta_info is None:
+            # if not installed, just ignore, we cannot do anything
+            return None
+
+        # do not add if already present
+        if typed_model_meta_info in meta_node.mro:
+            return None
+
+        typed_model_meta_instance = Instance(typed_model_meta_info, [])
+        meta_node.bases = meta_node.bases + [typed_model_meta_instance]
+
+        try:
+            calculate_mro(meta_node)
+        except MroError:
+            pass
 
 
 class AddDefaultPrimaryKey(ModelClassInitializer):
