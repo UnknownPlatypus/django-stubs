@@ -573,7 +573,9 @@ def add_as_manager_to_queryset_class(ctx: ClassDefContext) -> None:
         ctx.cls,
         "as_manager",
         args=[],
-        return_type=Instance(new_manager_info, [AnyType(TypeOfAny.from_omitted_generics)]),
+        return_type=Instance(
+            new_manager_info, [AnyType(TypeOfAny.from_omitted_generics), AnyType(TypeOfAny.from_omitted_generics)]
+        ),
         is_classmethod=True,
     )
 
