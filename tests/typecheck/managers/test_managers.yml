@@ -228,10 +228,10 @@
         reveal_type(AbstractBase1.manager1)
         reveal_type(AbstractBase2.restricted)
     out: |
-        main:2: note: Revealed type is "myapp.models.CustomManager1"
-        main:3: note: Revealed type is "myapp.models.CustomManager2"
-        main:4: note: Revealed type is "myapp.models.CustomManager1"
-        main:5: note: Revealed type is "myapp.models.CustomManager2"
+        main:2: note: Revealed type is "myapp.models.CustomManager1[myapp.models.Child, django.db.models.query.QuerySet[myapp.models.Child, myapp.models.Child]]"
+        main:3: note: Revealed type is "myapp.models.CustomManager2[myapp.models.Child, django.db.models.query.QuerySet[myapp.models.Child, myapp.models.Child]]"
+        main:4: note: Revealed type is "myapp.models.CustomManager1[myapp.models.AbstractBase1, django.db.models.query.QuerySet[myapp.models.AbstractBase1, myapp.models.AbstractBase1]]"
+        main:5: note: Revealed type is "myapp.models.CustomManager2[myapp.models.AbstractBase2, django.db.models.query.QuerySet[myapp.models.AbstractBase2, myapp.models.AbstractBase2]]"
     installed_apps:
         - myapp
     files:
@@ -260,13 +260,13 @@
 -   case: managers_inherited_from_abstract_classes_multiple_inheritance_with_generic
     main: |
         from myapp.models import AbstractBase1, AbstractBase2, Child
-        reveal_type(Child.manager1)  # N: Revealed type is "myapp.models.CustomManager1[myapp.models.Child]"
+        reveal_type(Child.manager1)  # N: Revealed type is "myapp.models.CustomManager1[myapp.models.Child, django.db.models.query.QuerySet[myapp.models.Child, myapp.models.Child]]"
         reveal_type(Child.manager1.get())  # N: Revealed type is "myapp.models.Child"
-        reveal_type(Child.restricted)  # N: Revealed type is "myapp.models.CustomManager2[myapp.models.Child]"
+        reveal_type(Child.restricted)  # N: Revealed type is "myapp.models.CustomManager2[myapp.models.Child, django.db.models.query.QuerySet[myapp.models.Child, myapp.models.Child]]"
         reveal_type(Child.restricted.get())  # N: Revealed type is "myapp.models.Child"
-        reveal_type(AbstractBase1.manager1)  # N: Revealed type is "myapp.models.CustomManager1[myapp.models.AbstractBase1]"
+        reveal_type(AbstractBase1.manager1)  # N: Revealed type is "myapp.models.CustomManager1[myapp.models.AbstractBase1, django.db.models.query.QuerySet[myapp.models.AbstractBase1, myapp.models.AbstractBase1]]"
         reveal_type(AbstractBase1.manager1.get())  # N: Revealed type is "myapp.models.AbstractBase1"
-        reveal_type(AbstractBase2.restricted)  # N: Revealed type is "myapp.models.CustomManager2[myapp.models.AbstractBase2]"
+        reveal_type(AbstractBase2.restricted)  # N: Revealed type is "myapp.models.CustomManager2[myapp.models.AbstractBase2, django.db.models.query.QuerySet[myapp.models.AbstractBase2, myapp.models.AbstractBase2]]"
         reveal_type(AbstractBase2.restricted.get())  # N: Revealed type is "myapp.models.AbstractBase2"
     installed_apps:
         - myapp
@@ -443,7 +443,7 @@
 -   case: custom_manager_annotate_method_before_type_declaration
     main: |
         from myapp.models import ModelA, ModelB, ManagerA
-        reveal_type(ModelA.objects)  # N: Revealed type is "myapp.models.ManagerA[myapp.models.ModelA]"
+        reveal_type(ModelA.objects)  # N: Revealed type is "myapp.models.ManagerA[myapp.models.ModelA, django.db.models.query.QuerySet[myapp.models.ModelA, myapp.models.ModelA]]"
         reveal_type(ModelA.objects.do_something)  # N: Revealed type is "def (other_obj: myapp.models.ModelB) -> builtins.str"
     installed_apps:
         - myapp
@@ -708,7 +708,7 @@
     installed_apps:
         - myapp
     out: |
-        main:2: note: Revealed type is "myapp.models.MyModel.MyManager[myapp.models.MyModel]"
+        main:2: note: Revealed type is "myapp.models.MyModel.MyManager[myapp.models.MyModel, django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
         main:3: note: Revealed type is "myapp.models.MyModel"
     files:
         -   path: myapp/__init__.py
@@ -742,19 +742,19 @@
 -   case: test_does_not_populate_an_unexpected_type_argument
     main: |
         from myapp.models import MyModel
-        reveal_type(MyModel.populated_manager)  # N: Revealed type is "myapp.models.PopulatedManager"
+        reveal_type(MyModel.populated_manager)  # N: Revealed type is "myapp.models.PopulatedManager[myapp.models.MyModel, django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
         reveal_type(MyModel.populated_manager.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.populated_manager.filter())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]"
 
-        reveal_type(MyModel.populated_manager_from_generic_queryset)  # N: Revealed type is "myapp.models.PopulatedManagerFromQuerySet"
+        reveal_type(MyModel.populated_manager_from_generic_queryset)  # N: Revealed type is "myapp.models.PopulatedManagerFromQuerySet[myapp.models.MyModel, django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
         reveal_type(MyModel.populated_manager_from_generic_queryset.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.populated_manager_from_generic_queryset.filter())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]"
 
-        reveal_type(MyModel.populated_manager_from_populated_queryset)  # N: Revealed type is "myapp.models.PopulatedManagerFromPopulatedQuerySet"
+        reveal_type(MyModel.populated_manager_from_populated_queryset)  # N: Revealed type is "myapp.models.PopulatedManagerFromPopulatedQuerySet[myapp.models.MyModel, myapp.models.PopulatedQuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
         reveal_type(MyModel.populated_manager_from_populated_queryset.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.populated_manager_from_populated_queryset.filter())  # N: Revealed type is "myapp.models.PopulatedQuerySet"
 
-        reveal_type(MyModel.generic_manager)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.MyModel]"
+        reveal_type(MyModel.generic_manager)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.MyModel, django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
         reveal_type(MyModel.generic_manager.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.generic_manager.filter())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]"
 
@@ -762,7 +762,7 @@
         reveal_type(MyModel.generic_manager_from_generic_queryset.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.generic_manager_from_generic_queryset.filter())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]"
 
-        reveal_type(MyModel.generic_manager_from_populated_queryset)  # N: Revealed type is "myapp.models.ManagerFromPopulatedQuerySet[myapp.models.MyModel]"
+        reveal_type(MyModel.generic_manager_from_populated_queryset)  # N: Revealed type is "myapp.models.ManagerFromPopulatedQuerySet[myapp.models.MyModel, myapp.models.PopulatedQuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
         reveal_type(MyModel.generic_manager_from_populated_queryset.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.generic_manager_from_populated_queryset.filter())  # N: Revealed type is "myapp.models.PopulatedQuerySet"
 
@@ -794,7 +794,7 @@
 -   case: test_objects_managers_is_kept_with_specific_import_graph
     main: |
         from zerver.models import RealmFilter
-        reveal_type(RealmFilter.objects)  # N: Revealed type is "django.db.models.manager.Manager[zerver.models.linkifiers.RealmFilter]"
+        reveal_type(RealmFilter.objects)  # N: Revealed type is "django.db.models.manager.Manager[zerver.models.linkifiers.RealmFilter, django.db.models.query.QuerySet[zerver.models.linkifiers.RealmFilter, zerver.models.linkifiers.RealmFilter]]"
     installed_apps:
         - django.contrib.auth
         - django.contrib.contenttypes

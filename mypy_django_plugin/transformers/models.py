@@ -207,9 +207,10 @@ class ModelClassInitializer:
 
         return queryset_info
 
-    def build_manager_instance(self, manager_cls: type["Manager[Any]"], manager_info: TypeInfo) -> Instance:
+    def build_manager_instance(
+        self, manager_cls: type["Manager[Any]"], manager_info: TypeInfo, model_instance: MypyType
+    ) -> Instance:
         """Builds an Instance of a Manager, filling in the Model and QuerySet type if possible."""
-        model_instance = Instance(self.model_classdef.info, [])
         try:
             queryset_info = self.get_queryset_info_from_manager(manager_cls)
             queryset_instance = Instance(queryset_info, [model_instance, model_instance])
@@ -415,8 +416,12 @@ class AddManagers(ModelClassInitializer):
                 continue
 
             assert self.model_classdef.info.self_type is not None
-            manager_type = helpers.fill_manager(manager_info, self.model_classdef.info.self_type)
-            self.add_new_node_to_model_class(manager_name, manager_type, is_classvar=True)
+            manager_instance = self.build_manager_instance(
+                manager_cls=manager.__class__,
+                manager_info=manager_info,
+                model_instance=self.model_classdef.info.self_type,
+            )
+            self.add_new_node_to_model_class(manager_name, manager_instance, is_classvar=True)
 
         if incomplete_manager_defs:
             if not self.api.final_iteration:
@@ -516,7 +521,11 @@ class AddDefaultManagerAttribute(ModelClassInitializer):
                     return None
             default_manager_info = generated_manager_info
 
-        default_manager = self.build_manager_instance(default_manager_cls, default_manager_info)
+        default_manager = self.build_manager_instance(
+            manager_cls=default_manager_cls,
+            manager_info=default_manager_info,
+            model_instance=Instance(self.model_classdef.info, []),
+        )
         self.add_new_node_to_model_class("_default_manager", default_manager, is_classvar=True)
 
 

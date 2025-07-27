@@ -1427,8 +1427,8 @@
         from other.models import Other
         reveal_type(MyModel.m2m_1.through.objects)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.MyModel_m2m_1]"
         reveal_type(Other.auto_through.through.objects)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.MyModel_m2m_1]"
-        reveal_type(MyModel.m2m_2.through.objects)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.Through]"
-        reveal_type(Other.custom_through.through.objects)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.Through]"
+        reveal_type(MyModel.m2m_2.through.objects)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.Through, django.db.models.query.QuerySet[myapp.models.Through, myapp.models.Through]]"
+        reveal_type(Other.custom_through.through.objects)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.Through, django.db.models.query.QuerySet[myapp.models.Through, myapp.models.Through]]"
     installed_apps:
         -   other
         -   myapp
