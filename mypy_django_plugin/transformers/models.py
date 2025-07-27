@@ -13,7 +13,6 @@ from mypy.nodes import (
     Argument,
     AssignmentStmt,
     CallExpr,
-    ClassDef,
     Context,
     Expression,
     FakeInfo,
@@ -208,18 +207,21 @@ class ModelClassInitializer:
 
         return queryset_info
 
-    def build_manager_instance(
-        self, manager_cls: type["Manager[Any]"], manager_info: TypeInfo, model_cls_def: ClassDef
-    ) -> Instance:
+    def build_manager_instance(self, manager_cls: type["Manager[Any]"], manager_info: TypeInfo) -> Instance:
         """Builds an Instance of a Manager, filling in the Model and QuerySet type if possible."""
-        model_instance = Instance(model_cls_def.info, [])
+        model_instance = Instance(self.model_classdef.info, [])
         try:
-            queryset_fullname = helpers.get_class_fullname(klass=manager_cls()._queryset_class)
-            queryset_info = self.lookup_typeinfo_or_incomplete_defn_error(queryset_fullname)
+            queryset_info = self.get_queryset_info_from_manager(manager_cls)
             queryset_instance = Instance(queryset_info, [model_instance, model_instance])
             return Instance(manager_info, [model_instance, queryset_instance])
         except helpers.IncompleteDefnException:
             return helpers.fill_manager(manager_info, model_instance)
+
+    def get_queryset_info_from_manager(self, manager_cls: type["Manager[Any]"]) -> TypeInfo:
+        queryset_klass = manager_cls()._queryset_class
+        queryset_fullname = helpers.get_class_fullname(klass=queryset_klass)
+        queryset_info = self.lookup_typeinfo_or_incomplete_defn_error(queryset_fullname)
+        return queryset_info
 
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
         raise NotImplementedError(f"Implement this in subclass {self.__class__.__name__}")
@@ -514,7 +516,7 @@ class AddDefaultManagerAttribute(ModelClassInitializer):
                     return None
             default_manager_info = generated_manager_info
 
-        default_manager = self.build_manager_instance(default_manager_cls, default_manager_info, self.model_classdef)
+        default_manager = self.build_manager_instance(default_manager_cls, default_manager_info)
         self.add_new_node_to_model_class("_default_manager", default_manager, is_classvar=True)
 
 
@@ -539,6 +541,7 @@ class AddReverseLookups(ModelClassInitializer):
 
         to_model_cls = self.django_context.get_field_related_model_cls(relation)
         to_model_info = self.lookup_class_typeinfo_or_incomplete_defn_error(to_model_cls)
+        to_model_instance = Instance(to_model_info, [])
 
         reverse_lookup_declared = attname in self.model_classdef.info.names
         if isinstance(relation, OneToOneRel):
@@ -547,7 +550,7 @@ class AddReverseLookups(ModelClassInitializer):
                     attname,
                     Instance(
                         self.reverse_one_to_one_descriptor,
-                        [Instance(self.model_classdef.info, []), Instance(to_model_info, [])],
+                        [Instance(self.model_classdef.info, []), to_model_instance],
                     ),
                 )
             return
@@ -559,17 +562,24 @@ class AddReverseLookups(ModelClassInitializer):
                 through_model_info = self.lookup_typeinfo_or_incomplete_defn_error(through_fullname)
                 self.add_new_node_to_model_class(
                     attname,
-                    Instance(
-                        self.many_to_many_descriptor, [Instance(to_model_info, []), Instance(through_model_info, [])]
-                    ),
+                    Instance(self.many_to_many_descriptor, [to_model_instance, Instance(through_model_info, [])]),
                     is_classvar=True,
                 )
             return
         elif not reverse_lookup_declared:
             # ManyToOneRel
-            self.add_new_node_to_model_class(
-                attname, Instance(self.reverse_many_to_one_descriptor, [Instance(to_model_info, [])]), is_classvar=True
-            )
+            if not to_model_cls._meta.default_manager:
+                self.add_new_node_to_model_class(
+                    attname, Instance(self.reverse_many_to_one_descriptor, [to_model_instance]), is_classvar=True
+                )
+            else:
+                queryset_info = self.get_queryset_info_from_manager(to_model_cls._meta.default_manager.__class__)
+                queryset_instance = Instance(queryset_info, [to_model_instance, to_model_instance])
+                self.add_new_node_to_model_class(
+                    attname,
+                    Instance(self.reverse_many_to_one_descriptor, [to_model_instance, queryset_instance]),
+                    is_classvar=True,
+                )
 
         related_manager_info = self.lookup_typeinfo_or_incomplete_defn_error(fullnames.RELATED_MANAGER_CLASS)
         # TODO: Support other reverse managers than `_default_manager`
@@ -610,7 +620,7 @@ class AddReverseLookups(ModelClassInitializer):
 
         # Create a reverse manager subclassed from the default manager of the related
         # model and 'RelatedManager'
-        related_manager = Instance(related_manager_info, [Instance(to_model_info, [])])
+        related_manager = Instance(related_manager_info, [to_model_instance])
         # The reverse manager is based on the related model's manager, so it makes most sense to add the new
         # related manager in that module
         new_related_manager_info = helpers.add_new_class_for_module(

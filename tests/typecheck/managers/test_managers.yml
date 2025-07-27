@@ -629,7 +629,7 @@
         myapp/models:59: note: Revealed type is "builtins.list[myapp.models.Booking]"
         myapp/models:60: note: Revealed type is "builtins.list[myapp.models.Booking]"
         myapp/models:64: note: Revealed type is "def () -> django.db.models.query.QuerySet[myapp.models.Booking, myapp.models.Booking]"
-        myapp/models:65: error: "RelatedManager[Booking]" has no attribute "custom"  [attr-defined]
+        myapp/models:65: error: "RelatedManager[Booking, QuerySet[Booking, Booking]]" has no attribute "custom"  [attr-defined]
         myapp/models:65: note: Revealed type is "Any"
         myapp/models:66: note: Revealed type is "def (*args: Any, **kwargs: Any) -> django.db.models.query.QuerySet[myapp.models.Booking, myapp.models.Booking]"
         myapp/models:67: error: "QuerySet[Booking, Booking]" has no attribute "custom"  [attr-defined]
