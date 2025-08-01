@@ -342,8 +342,8 @@
 -   case: from_queryset_returns_intersection_of_manager_and_queryset
     main: |
         from myapp.models import MyModel, NewManager
+        reveal_type(NewManager())  # N: Revealed type is "myapp.models.ModelBaseManagerFromModelQuerySet[Never, django.db.models.query.QuerySet[_T`304, _T`304]]"
         reveal_type(MyModel.objects)  # N: Revealed type is "myapp.models.ModelBaseManagerFromModelQuerySet[myapp.models.MyModel, myapp.models.ModelQuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
-        reveal_type(NewManager())  # N: Revealed type is "myapp.models.ModelBaseManagerFromModelQuerySet"
         reveal_type(MyModel.objects.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.objects.manager_only_method())  # N: Revealed type is "builtins.int"
         reveal_type(MyModel.objects.manager_and_queryset_method())  # N: Revealed type is "builtins.str"
@@ -368,12 +368,12 @@
 -   case: from_queryset_with_class_name_provided
     main: |
         from myapp.models import MyModel, NewManager, OtherModel, OtherManager
-        reveal_type(NewManager())  # N: Revealed type is "myapp.models.NewManager"
+        reveal_type(NewManager())  # N: Revealed type is "myapp.models.NewManager[Never, django.db.models.query.QuerySet[_T`310, _T`310]]"
         reveal_type(MyModel.objects)  # N: Revealed type is "myapp.models.NewManager[myapp.models.MyModel, myapp.models.ModelQuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
         reveal_type(MyModel.objects.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.objects.manager_only_method())  # N: Revealed type is "builtins.int"
         reveal_type(MyModel.objects.manager_and_queryset_method())  # N: Revealed type is "builtins.str"
-        reveal_type(OtherManager())  # N: Revealed type is "myapp.models.X"
+        reveal_type(OtherManager())  # N: Revealed type is "myapp.models.X[Never, django.db.models.query.QuerySet[_T`312, _T`312]]"
         reveal_type(OtherModel.objects)  # N: Revealed type is "myapp.models.X[myapp.models.OtherModel, myapp.models.ModelQuerySet[myapp.models.OtherModel, myapp.models.OtherModel]]"
         reveal_type(OtherModel.objects.manager_only_method())  # N: Revealed type is "builtins.int"
         reveal_type(OtherModel.objects.manager_and_queryset_method())  # N: Revealed type is "builtins.str"
@@ -742,7 +742,7 @@
 -   case: handles_name_collision_with_generated_type
     main: |
         from myapp.models import MyModel, ManagerFromModelQuerySet
-        reveal_type(ManagerFromModelQuerySet())  # N: Revealed type is "myapp.models.ManagerFromModelQuerySet[Never]"
+        reveal_type(ManagerFromModelQuerySet())  # N: Revealed type is "myapp.models.ManagerFromModelQuerySet[Never, django.db.models.query.QuerySet[_T`304, _T`304]]"
         reveal_type(MyModel.objects)  # N: Revealed type is "myapp.models.ManagerFromModelQuerySet[myapp.models.MyModel, myapp.models.ModelQuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
     installed_apps:
         - myapp
@@ -764,7 +764,7 @@
     main: |
         from myapp.models import MyModel, Generated, ManagerFromModelQuerySet
         reveal_type(ManagerFromModelQuerySet)  # N: Revealed type is "builtins.int"
-        reveal_type(Generated())  # N: Revealed type is "myapp.models.ManagerFromModelQuerySet2[Never]"
+        reveal_type(Generated())  # N: Revealed type is "myapp.models.ManagerFromModelQuerySet2[Never, django.db.models.query.QuerySet[_T`304, _T`304]]"
         reveal_type(MyModel.objects)  # N: Revealed type is "myapp.models.ManagerFromModelQuerySet2[myapp.models.MyModel, myapp.models.ModelQuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
     installed_apps:
         - myapp
