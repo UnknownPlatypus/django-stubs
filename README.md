@@ -230,15 +230,21 @@ will cause this error message:
 This is happening because the `Manager` class is generic, but without
 specifying generics the built-in manager methods are expected to return the
 generic type of the base manager, which is any model. To fix this issue you
-should declare your manager with your model as the type variable, and the
-QuerySet type.
-TODO: document custom queryset separately
+should declare your manager with your model as the type variable:
+
+```python
+class MyManager(models.Manager["MyModel"]):
+    ...
+```
+
+If your manager also use a custom queryset, you can provide your queryset as the second type parameter.
 ```python
 class MyQuerySet(models.QuerySet["MyModel"]):
   ...
 
-class MyManager(models.Manager["MyModel", MyQuerySet]):
-    ...
+class MyStaffManager(models.Manager["MyModel", MyQuerySet]):
+     def get_queryset(self) -> MyQuerySet:
+         return MyQuerySet(self.model, using=self._db)
 ```
 
 ### How do I annotate cases where I called QuerySet.annotate?
