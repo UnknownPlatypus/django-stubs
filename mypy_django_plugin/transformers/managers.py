@@ -590,8 +590,9 @@ def reparametrize_any_manager_hook(ctx: ClassDefContext) -> None:
 
     is interpreted as:
 
-        _T = TypeVar('_T', covariant=True)
-        class MyManager(models.Manager[_T]): ...
+        _T = TypeVar("_T", bound=Model, covariant=True)
+        _QS = TypeVar("_QS", bound=QuerySet[Any], covariant=True, default=QuerySet[_T])
+        class MyManager(models.Manager[_T, _QS]): ...
 
     Note that this does not happen if mypy is run with disallow_any_generics = True,
     as not specifying the generic type is then considered an error.
@@ -610,7 +611,7 @@ def reparametrize_any_manager_hook(ctx: ClassDefContext) -> None:
         (base for base in manager.node.bases if base.type.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME)),
         None,
     )
-    if parent_manager is None or len(parent_manager.args) != 1:
+    if parent_manager is None or len(parent_manager.args) < 1:
         return
 
     model_param = get_proper_type(parent_manager.args[0])
