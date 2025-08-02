@@ -212,13 +212,24 @@ class ModelClassInitializer:
     ) -> Instance:
         """Builds an Instance of a Manager, filling in the Model and QuerySet type if possible."""
         try:
-            queryset_info = self.get_queryset_info_from_manager(manager_cls)
+            queryset_info = self.get_queryset_info_from_manager(manager_cls, manager_info)
             queryset_instance = Instance(queryset_info, [model_instance, model_instance])
             return Instance(manager_info, [model_instance, queryset_instance])
         except helpers.IncompleteDefnException:
             return helpers.fill_manager(manager_info, model_instance)
 
-    def get_queryset_info_from_manager(self, manager_cls: type["Manager[Any]"]) -> TypeInfo:
+    def get_queryset_info_from_manager(
+        self, manager_cls: type["Manager[Any]"], manager_info: TypeInfo | None = None
+    ) -> TypeInfo:
+        if manager_info is not None:
+            for base in manager_info.bases:
+                if (
+                    base.type.fullname == fullnames.MANAGER_CLASS_FULLNAME
+                    and len(base.args) == 2
+                    and isinstance((queryset_type := get_proper_type(base.args[1])), Instance)
+                ):
+                    return queryset_type.type
+
         queryset_klass = manager_cls()._queryset_class
         queryset_fullname = helpers.get_class_fullname(klass=queryset_klass)
         queryset_info = self.lookup_typeinfo_or_incomplete_defn_error(queryset_fullname)
