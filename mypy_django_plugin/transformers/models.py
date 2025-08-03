@@ -420,7 +420,7 @@ class AddManagers(ModelClassInitializer):
 
             if manager_info is None:
                 # We couldn't find a manager type, see if we should create one
-                manager_info = self.create_manager_from_from_queryset(manager_name)
+                manager_info = self.try_create_manager_from_from_queryset(manager_name)
 
             if manager_info is None:
                 incomplete_manager_defs.add(manager_name)
@@ -487,7 +487,7 @@ class AddManagers(ModelClassInitializer):
 
         return self.lookup_typeinfo(generated_manager_name)
 
-    def create_manager_from_from_queryset(self, name: str) -> TypeInfo | None:
+    def try_create_manager_from_from_queryset(self, name: str) -> TypeInfo | None:
         """
         Try to create a manager from a .from_queryset call:
 
