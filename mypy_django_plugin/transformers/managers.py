@@ -310,6 +310,8 @@ def create_new_manager_class_from_from_queryset_method(ctx: DynamicClassDefConte
     """
     Insert a new manager class node for a: '<Name> = <Manager>.from_queryset(<QuerySet>)'.
     When the assignment expression lives at module level.
+
+    class level cases are resolved in `AddManagers.create_manager_from_from_queryset`
     """
     semanal_api = helpers.get_semanal_api(ctx)
 
@@ -494,6 +496,11 @@ def populate_manager_from_queryset(manager_info: TypeInfo, queryset_info: TypeIn
 
 
 def add_as_manager_to_queryset_class(ctx: ClassDefContext) -> None:
+    """
+    Insert a new manager class node for a: '<Manager> = <QuerySet>.as_manager()'.
+
+    Similar to `create_manager_info_from_from_queryset_call`
+    """
     semanal_api = helpers.get_semanal_api(ctx)
 
     def _defer() -> None:
@@ -604,7 +611,7 @@ def reparametrize_any_manager_hook(ctx: ClassDefContext) -> None:
     assert isinstance(manager.node, TypeInfo)
 
     if manager.node.type_vars:
-        # We've already been here
+        # We've already been here or the manager is already declared with generic types
         return
 
     parent_manager = next(

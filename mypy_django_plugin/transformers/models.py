@@ -493,6 +493,8 @@ class AddManagers(ModelClassInitializer):
 
             class MyModel(models.Model):
                 objects = MyManager.from_queryset(MyQuerySet)()
+
+        module level cases are resolved in `create_new_manager_class_from_from_queryset_method`
         """
 
         assign_statement = self.get_manager_expression(name)
