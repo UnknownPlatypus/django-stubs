@@ -154,7 +154,7 @@
 -   case: test_leave_as_is_if_objects_is_set_and_fill_typevars_with_outer_class
     main: |
         from myapp.models import MyUser
-        reveal_type(MyUser.objects)  # N: Revealed type is "myapp.models.UserManager[myapp.models.MyUser, django.db.models.query.QuerySet[myapp.models.MyUser, myapp.models.MyUser]]"
+        reveal_type(MyUser.objects)  # N: Revealed type is "myapp.models.UserManager"
         reveal_type(MyUser.objects.get())  # N: Revealed type is "myapp.models.MyUser"
         reveal_type(MyUser.objects.get_or_404())  # N: Revealed type is "myapp.models.MyUser"
     installed_apps:
@@ -197,9 +197,9 @@
     main: |
         from myapp.models import AbstractPerson, Book
         reveal_type(AbstractPerson.abstract_persons)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.AbstractPerson, django.db.models.query.QuerySet[myapp.models.AbstractPerson, myapp.models.AbstractPerson]]"
-        reveal_type(Book.published_objects)  # N: Revealed type is "myapp.models.PublishedBookManager[myapp.models.Book, django.db.models.query.QuerySet[myapp.models.Book, myapp.models.Book]]"
+        reveal_type(Book.published_objects)  # N: Revealed type is "myapp.models.PublishedBookManager"
         Book.published_objects.create(title='hello')
-        reveal_type(Book.annotated_objects)  # N: Revealed type is "myapp.models.AnnotatedBookManager[myapp.models.Book, django.db.models.query.QuerySet[myapp.models.Book, myapp.models.Book]]"
+        reveal_type(Book.annotated_objects)  # N: Revealed type is "myapp.models.AnnotatedBookManager"
         Book.annotated_objects.create(title='hello')
     installed_apps:
         - myapp
@@ -228,10 +228,10 @@
         reveal_type(AbstractBase1.manager1)
         reveal_type(AbstractBase2.restricted)
     out: |
-        main:2: note: Revealed type is "myapp.models.CustomManager1[myapp.models.Child, django.db.models.query.QuerySet[myapp.models.Child, myapp.models.Child]]"
-        main:3: note: Revealed type is "myapp.models.CustomManager2[myapp.models.Child, django.db.models.query.QuerySet[myapp.models.Child, myapp.models.Child]]"
-        main:4: note: Revealed type is "myapp.models.CustomManager1[myapp.models.AbstractBase1, django.db.models.query.QuerySet[myapp.models.AbstractBase1, myapp.models.AbstractBase1]]"
-        main:5: note: Revealed type is "myapp.models.CustomManager2[myapp.models.AbstractBase2, django.db.models.query.QuerySet[myapp.models.AbstractBase2, myapp.models.AbstractBase2]]"
+        main:2: note: Revealed type is "myapp.models.CustomManager1"
+        main:3: note: Revealed type is "myapp.models.CustomManager2"
+        main:4: note: Revealed type is "myapp.models.CustomManager1"
+        main:5: note: Revealed type is "myapp.models.CustomManager2"
     installed_apps:
         - myapp
     files:
@@ -768,15 +768,15 @@
 -   case: test_does_not_populate_an_unexpected_type_argument
     main: |
         from myapp.models import MyModel
-        reveal_type(MyModel.populated_manager)  # N: Revealed type is "myapp.models.PopulatedManager[myapp.models.MyModel, django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
+        reveal_type(MyModel.populated_manager)  # N: Revealed type is "myapp.models.PopulatedManager"
         reveal_type(MyModel.populated_manager.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.populated_manager.filter())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]"
 
-        reveal_type(MyModel.populated_manager_from_generic_queryset)  # N: Revealed type is "myapp.models.PopulatedManagerFromQuerySet[myapp.models.MyModel, django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
+        reveal_type(MyModel.populated_manager_from_generic_queryset)  # N: Revealed type is "myapp.models.PopulatedManagerFromQuerySet"
         reveal_type(MyModel.populated_manager_from_generic_queryset.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.populated_manager_from_generic_queryset.filter())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]"
 
-        reveal_type(MyModel.populated_manager_from_populated_queryset)  # N: Revealed type is "myapp.models.PopulatedManagerFromPopulatedQuerySet[myapp.models.MyModel, myapp.models.PopulatedQuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
+        reveal_type(MyModel.populated_manager_from_populated_queryset)  # N: Revealed type is "myapp.models.PopulatedManagerFromPopulatedQuerySet"
         reveal_type(MyModel.populated_manager_from_populated_queryset.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.populated_manager_from_populated_queryset.filter())  # N: Revealed type is "myapp.models.PopulatedQuerySet"
 
@@ -788,7 +788,7 @@
         reveal_type(MyModel.generic_manager_from_generic_queryset.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.generic_manager_from_generic_queryset.filter())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]"
 
-        reveal_type(MyModel.generic_manager_from_populated_queryset)  # N: Revealed type is "myapp.models.ManagerFromPopulatedQuerySet[myapp.models.MyModel, myapp.models.PopulatedQuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
+        reveal_type(MyModel.generic_manager_from_populated_queryset)  # N: Revealed type is "myapp.models.ManagerFromPopulatedQuerySet[myapp.models.MyModel, myapp.models.PopulatedQuerySet]"
         reveal_type(MyModel.generic_manager_from_populated_queryset.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.generic_manager_from_populated_queryset.filter())  # N: Revealed type is "myapp.models.PopulatedQuerySet"
 
@@ -905,7 +905,7 @@
 -   case: manager_from_untyped_custom_queryset
     main: |
         from myapp.models import AbstractNotification, Notification
-        reveal_type(AbstractNotification.objects) # N: Revealed type is "myapp.models.ManagerFromNotificationQuerySet[myapp.models.AbstractNotification, myapp.models.NotificationQuerySet[myapp.models.AbstractNotification, myapp.models.AbstractNotification]]"
+        reveal_type(AbstractNotification.objects) # N: Revealed type is "myapp.models.ManagerFromNotificationQuerySet[myapp.models.AbstractNotification, myapp.models.NotificationQuerySet]"
         reveal_type(Notification.objects) # N: Revealed type is "myapp.models.ManagerFromNotificationQuerySet[myapp.models.Notification]"
         reveal_type(Notification.objects.all()) # N: Revealed type is "myapp.models.NotificationQuerySet"
     installed_apps:
@@ -942,7 +942,7 @@
 -   case: manager_from_typed_custom_queryset
     main: |
         from myapp.models import Transaction
-        reveal_type(Transaction.objects) # N: Revealed type is "myapp.models.TransactionManager[myapp.models.Transaction, myapp.models.TransactionQuerySet[myapp.models.Transaction, myapp.models.Transaction]]"
+        reveal_type(Transaction.objects) # N: Revealed type is "myapp.models.TransactionManager"
         reveal_type(Transaction.objects.select_related()) # N: Revealed type is "myapp.models.TransactionQuerySet"
         reveal_type(Transaction.objects.get()) # N: Revealed type is "myapp.models.Transaction"
 
