@@ -213,10 +213,10 @@ class ModelClassInitializer:
         """Builds an Instance of a Manager, filling in the Model and QuerySet type if possible."""
         try:
             queryset_info = self.get_queryset_info_from_manager(manager_cls, manager_info)
-            queryset_instance = Instance(queryset_info, [model_instance, model_instance])
-            return Instance(manager_info, [model_instance, queryset_instance])
+            queryset_instance = helpers.fill_instance(queryset_info, [model_instance, model_instance])
+            return helpers.fill_instance(manager_info, [model_instance, queryset_instance])
         except helpers.IncompleteDefnException:
-            return helpers.fill_manager(manager_info, model_instance)
+            return helpers.fill_instance(manager_info, [model_instance])
 
     def get_queryset_info_from_manager(
         self, manager_cls: type["Manager[Any]"], manager_info: TypeInfo | None = None
@@ -401,7 +401,7 @@ class AddManagers(ModelClassInitializer):
 
         assert manager_info is not None
         # Reparameterize dynamically created manager with model type
-        manager_type = helpers.fill_manager(manager_info, Instance(self.model_classdef.info, []))
+        manager_type = helpers.fill_instance(manager_info, [Instance(self.model_classdef.info, [])])
         self.add_new_node_to_model_class(manager_name, manager_type, is_classvar=True)
 
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
@@ -448,7 +448,7 @@ class AddManagers(ModelClassInitializer):
                 fallback_manager_info = self.get_or_create_manager_with_any_fallback()
                 if fallback_manager_info is not None:
                     assert self.model_classdef.info.self_type is not None
-                    manager_type = helpers.fill_manager(fallback_manager_info, self.model_classdef.info.self_type)
+                    manager_type = helpers.fill_instance(fallback_manager_info, [self.model_classdef.info.self_type])
                     self.add_new_node_to_model_class(manager_name, manager_type, is_classvar=True)
 
                 # Find expression for e.g. `objects = SomeManager()`
