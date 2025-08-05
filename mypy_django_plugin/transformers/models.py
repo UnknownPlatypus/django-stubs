@@ -29,6 +29,7 @@ from mypy.semanal import SemanticAnalyzer
 from mypy.typeanal import TypeAnalyser
 from mypy.types import (
     AnyType,
+    CallableType,
     ExtraAttrs,
     Instance,
     ProperType,
@@ -221,7 +222,15 @@ class ModelClassInitializer:
     def get_queryset_info_from_manager(
         self, manager_cls: type["Manager[Any]"], manager_info: TypeInfo | None = None
     ) -> TypeInfo:
+        """
+        Extract the QuerySet TypeInfo from a manager class and type info.
+        This tries to be extra accommodating for loosely typed custom managers.
+        """
         if manager_info is not None:
+            # 1. Use the queryset type param if provided
+            #    Ex:
+            #        class MyManager(models.Manager[MyModel, MyQuerySet]):
+            #            ...
             for base in manager_info.bases:
                 if (
                     base.type.fullname == fullnames.MANAGER_CLASS_FULLNAME
@@ -230,6 +239,26 @@ class ModelClassInitializer:
                 ):
                     return queryset_type.type
 
+            # 2. Use the return type param of `get_queryset` if explicitly defined
+            #    Ex:
+            #        class MyManager(models.Manager[MyModel]):
+            #            def get_queryset(self) -> MyQuerySet:
+            #                ...
+            if (
+                (get_queryset_sym := manager_info.names.get("get_queryset"))
+                and (get_queryset_type := get_proper_type(get_queryset_sym.type)) is not None
+                and isinstance(get_queryset_type, CallableType)
+                and get_queryset_type.ret_type is not None
+                and (get_queryset_ret_type := get_proper_type(self.api.anal_type(get_queryset_type.ret_type)))
+                is not None
+                and isinstance(get_queryset_ret_type, Instance)
+            ):
+                return get_queryset_ret_type.type
+
+        # 3. Fallback to the `_queryset_class` of the manager that django always populate on class creation
+        #    Ex:
+        #        class MyManager(models.Manager):
+        #            _queryset_class = MyQuerySet
         queryset_klass = manager_cls()._queryset_class
         queryset_fullname = helpers.get_class_fullname(klass=queryset_klass)
         queryset_info = self.lookup_typeinfo_or_incomplete_defn_error(queryset_fullname)
