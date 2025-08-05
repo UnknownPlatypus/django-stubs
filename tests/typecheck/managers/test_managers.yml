@@ -901,53 +901,21 @@
 
                 class Bar(UUIDPrimaryKeyAbstractModel):
                     foo = models.ForeignKey(Foo, on_delete=models.CASCADE)
-# regression test for #1023
--   case: manager_from_untyped_custom_queryset
+
+-   case: manager_with_custom_queryset
     main: |
-        from myapp.models import AbstractNotification, Notification
-        reveal_type(AbstractNotification.objects) # N: Revealed type is "myapp.models.ManagerFromNotificationQuerySet[myapp.models.AbstractNotification, myapp.models.NotificationQuerySet]"
-        reveal_type(Notification.objects) # N: Revealed type is "myapp.models.ManagerFromNotificationQuerySet[myapp.models.Notification]"
-        reveal_type(Notification.objects.all()) # N: Revealed type is "myapp.models.NotificationQuerySet"
-    installed_apps:
-        - myapp
-    files:
-        -   path: myapp/__init__.py
-        -   path: myapp/models.py
-            content: |
-                from django.db import models
-                from typing_extensions import Self
+        from myapp.models import MyModel
+        reveal_type(MyModel.my_untyped_manager) # N: Revealed type is "myapp.models.MyUntypedManager[myapp.models.MyModel, django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]]"
+        reveal_type(MyModel.my_untyped_manager.all()) # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]"
+        reveal_type(MyModel.my_untyped_manager.get()) # N: Revealed type is "myapp.models.MyModel"
 
-                class NotificationQuerySet(models.query.QuerySet):
-                    ''' Notification QuerySet '''
-                    def unsent(self) -> Self:
-                        return self.filter(emailed=False)
+        reveal_type(MyModel.my_typed_manager) # N: Revealed type is "myapp.models.MyTypedManager"
+        reveal_type(MyModel.my_typed_manager.all()) # N: Revealed type is "myapp.models.MyOtherQuerySet"
+        reveal_type(MyModel.my_typed_manager.get()) # N: Revealed type is "myapp.models.MyModel"
 
-                    def sent(self) -> Self:
-                        return self.filter(emailed=True)
-
-                class AbstractNotification(models.Model):
-                    actor_object_id = models.CharField('actor object id', max_length=255)
-
-                    objects = NotificationQuerySet.as_manager()
-
-                    class Meta:
-                        abstract = True
-                        verbose_name = 'Notification'
-                        verbose_name_plural = 'Notifications'
-
-                class Notification(AbstractNotification):
-                    class Meta(AbstractNotification.Meta):
-                        abstract = False
-# regression test for 728
--   case: manager_from_typed_custom_queryset
-    main: |
-        from myapp.models import Transaction
-        reveal_type(Transaction.objects) # N: Revealed type is "myapp.models.TransactionManager"
-        reveal_type(Transaction.objects.select_related()) # N: Revealed type is "myapp.models.TransactionQuerySet"
-        reveal_type(Transaction.objects.get()) # N: Revealed type is "myapp.models.Transaction"
-
-        Transaction.objects.with_status()
-        Transaction.objects.select_related().with_status()
+        reveal_type(MyModel.my_typed_manager_confilicting_generic) # N: Revealed type is "myapp.models.MyOtherManagerConflictingGeneric"
+        reveal_type(MyModel.my_typed_manager_confilicting_generic.all()) # N: Revealed type is "myapp.models.MyQuerySet"
+        reveal_type(MyModel.my_typed_manager_confilicting_generic.get()) # N: Revealed type is "myapp.models.MyModel"
 
     installed_apps:
         - myapp
@@ -958,15 +926,21 @@
                 from django.db import models
                 from typing_extensions import Self
 
-                class TransactionQuerySet(models.QuerySet):
-                    def with_status(self) -> Self:
-                        return self.filter(status=...)
+                class MyQuerySet(models.QuerySet["MyModel"]): ...
+                class MyOtherQuerySet(models.QuerySet["MyModel"]): ...
 
-                class TransactionManager(models.Manager["Transaction", TransactionQuerySet]):
-                    def get_queryset(self) -> TransactionQuerySet:
-                        return TransactionQuerySet(self.model, using=self._db)
-                    def with_status(self) -> TransactionQuerySet:
-                        return self.get_queryset().with_status()
+                class MyUntypedManager(models.Manager):
+                    def get_queryset(self) -> MyQuerySet: # E: Return type "MyQuerySet" of "get_queryset" incompatible with return type "_QS" in supertype "django.db.models.manager.BaseManager"  [override]
+                        return MyQuerySet(self.model, using=self._db)
 
-                class Transaction(models.Model):
-                    objects = TransactionManager()
+                class MyTypedManager(models.Manager["MyModel", MyOtherQuerySet]):
+                    pass
+
+                class MyOtherManagerConflictingGeneric(models.Manager["MyModel", MyQuerySet]):
+                    def get_queryset(self) -> MyOtherQuerySet: # E: Return type "MyOtherQuerySet" of "get_queryset" incompatible with return type "MyQuerySet" in supertype "django.db.models.manager.BaseManager"  [override]
+                        return MyOtherQuerySet(self.model, using=self._db)
+
+                class MyModel(models.Model):
+                    my_untyped_manager = MyUntypedManager()
+                    my_typed_manager = MyTypedManager()
+                    my_typed_manager_confilicting_generic = MyOtherManagerConflictingGeneric()
