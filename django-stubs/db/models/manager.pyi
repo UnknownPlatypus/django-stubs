@@ -163,9 +163,9 @@ class ManagerDescriptor:
     @overload
     def __get__(self, instance: Model, cls: type[Model] | None = None) -> NoReturn: ...
 
-# We have define different typevars here otherwise it breaks inference for both cases
+# We have to define different typevars here otherwise it conflicts with the ones above
 _T2 = TypeVar("_T2", bound=Model, covariant=True)
 _QS2 = TypeVar("_QS2", bound=QuerySet[Any], covariant=True, default=QuerySet[_T2])
 
 class EmptyManager(Manager[_T2, _QS2]):
-    def __init__(self, model: type[_T]) -> None: ...
+    def __init__(self, model: type[_T2]) -> None: ...
