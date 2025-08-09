@@ -945,7 +945,7 @@
                     my_typed_manager = MyTypedManager()
                     my_typed_manager_confilicting_generic = MyOtherManagerConflictingGeneric()
 
-# regression test for 728
+# regression test for #728
 -   case: typed_manager_from_untyped_custom_queryset
     main: |
         from myapp.models import Transaction
