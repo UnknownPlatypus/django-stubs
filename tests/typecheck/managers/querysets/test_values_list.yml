@@ -290,6 +290,24 @@
                 class Transaction(models.Model):
                     total = models.IntegerField()
 
+-   case: untyped_subclass_of_queryset_has_proper_typings_on_methods
+    main: |
+        from myapp.models import TransactionQuerySet
+        reveal_type(TransactionQuerySet())  # N: Revealed type is "myapp.models.TransactionQuerySet"
+        reveal_type(TransactionQuerySet().values())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.Transaction, TypedDict({'id': builtins.int, 'total': builtins.int})]"
+        reveal_type(TransactionQuerySet().values_list())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.Transaction, tuple[builtins.int, builtins.int]]"
+    installed_apps:
+        - myapp
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+                class TransactionQuerySet(models.QuerySet):
+                    pass
+                class Transaction(models.Model):
+                    total = models.IntegerField()
+
 -   case: values_list_of_many_to_many_field
     main: |
         from myapp.models import Author, Book
