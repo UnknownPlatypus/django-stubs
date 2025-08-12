@@ -975,7 +975,7 @@
         reveal_type(MyModel.objects.all())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.MyModel, myapp.models.MyModel]"
         reveal_type(MyModel.objects.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.objects.all().get())  # N: Revealed type is "myapp.models.MyModel"
-        reveal_type(MyModel.objects_my_manager.all())  # N: Revealed type is "myapp.models.MyQuerySet"
+        reveal_type(MyModel.objects_my_manager.all())  # N: Revealed type is "myapp.models.MyQuerySet[myapp.models.MyModel, myapp.models.MyModel]"
         reveal_type(MyModel.objects_my_manager.get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.objects_my_manager.all().get())  # N: Revealed type is "myapp.models.MyModel"
         reveal_type(MyModel.objects_from_queryset.all())  # N: Revealed type is "myapp.models.MyQuerySet[myapp.models.MyModel, myapp.models.MyModel]"
@@ -992,7 +992,7 @@
                 class MyQuerySet(models.QuerySet):
                     pass
 
-                class MyManagerCustomQS(models.Manager["MyModel", MyQuerySet]):
+                class MyManagerCustomQS(models.Manager["MyModel", MyQuerySet["MyModel", "MyModel"]]):
                     def get_queryset(self) -> MyQuerySet:
                         return MyQuerySet(self.model, using=self._db)
 
