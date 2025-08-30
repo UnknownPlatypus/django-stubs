@@ -276,11 +276,22 @@ class InjectAnyAsBaseForNestedMeta(ModelClassInitializer):
             return None
         meta_node.fallback_to_any = True
 
-        if (typed_model_meta_info := self.lookup_typeinfo(fullnames.TYPED_MODEL_META_FULLNAME)) and (
-            not any(base.type.fullname == fullnames.TYPED_MODEL_META_FULLNAME for base in meta_node.bases)
+        # Insert TypedModelMeta into Meta.mro to enable attribute type checking against the
+        # typed base during semantic analysis, but avoid MRO conflicts by not duplicating it
+        # when inherited through base Meta classes.
+        typed_model_meta_info = self.lookup_typeinfo(fullnames.TYPED_MODEL_META_FULLNAME)
+        if typed_model_meta_info and (
+            # Skip explicitly inherited `TypedModelMeta`
+            not any(
+                base_type.fullname == fullnames.TYPED_MODEL_META_FULLNAME
+                for base_type in meta_node.direct_base_classes()
+            )
         ):
-            # Insert TypedModelMeta just before object to take advantage of mypy class body semantic analysis
-            meta_node.mro.insert(-1, typed_model_meta_info)
+            if meta_node.has_base(fullnames.TYPED_MODEL_META_FULLNAME):
+                meta_node.mro.remove(typed_model_meta_info)
+            # Always insert first to ensure TypedModelMeta is last in resolution order
+            # Hence type-ckeking even in the case of multiple Meta classes
+            meta_node.mro.insert(1, typed_model_meta_info)
         return None
 
 
