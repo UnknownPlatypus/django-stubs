@@ -289,9 +289,8 @@ class InjectAnyAsBaseForNestedMeta(ModelClassInitializer):
         ):
             if meta_node.has_base(fullnames.TYPED_MODEL_META_FULLNAME):
                 meta_node.mro.remove(typed_model_meta_info)
-            # Always insert first to ensure TypedModelMeta is last in resolution order
-            # Hence type-ckeking even in the case of multiple Meta classes
-            meta_node.mro.insert(1, typed_model_meta_info)
+            # Insert TypedModelMeta just before object to take advantage of mypy class body semantic analysis
+            meta_node.mro.insert(-1, typed_model_meta_info)
         return None
 
 

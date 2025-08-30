@@ -126,7 +126,7 @@
 
             class MyModel3(models.Model):
                 class Meta(MyModel.Meta, MyModel2.Meta):
-                    abstract = 7  # E: Incompatible types in assignment (expression has type "int", base class "TypedModelMeta" defined the type as "bool")  [assignment]
+                    abstract = 7  # Ok because both base class declare int currently
                     verbose_name = ['test']  # E: Incompatible types in assignment (expression has type "list[str]", base class "TypedModelMeta" defined the type as "str | _StrPromise")  [assignment]
                     unique_together = {1: 2}  # E: Incompatible types in assignment (expression has type "dict[int, int]", base class "TypedModelMeta" defined the type as "Sequence[Sequence[str]]")  [assignment]
 
