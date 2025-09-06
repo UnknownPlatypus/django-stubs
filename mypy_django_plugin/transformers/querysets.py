@@ -39,6 +39,7 @@ from mypy.types import (
     TypeVarType,
     get_proper_type,
 )
+from mypy.plugin import FunctionContext, MethodContext
 from mypy.types import Type as MypyType
 
 from mypy_django_plugin.django.context import DjangoContext, LookupsAreUnsupported
@@ -704,7 +705,8 @@ def check_valid_attr_value(
         # 1. Conflict with another symbol on the model (If not de-selected via a prior .values/.values_list call).
         # Ex:
         #     User.objects.prefetch_related(Prefetch(..., to_attr="id"))
-        (model.typ.type.get(attr_name) and (deselected_fields is None or attr_name not in deselected_fields))
+        (sym := model.typ.type.get(attr_name))
+        and not (isinstance(sym.node, Var) and not sym.node.has_explicit_value)
         # 2. Conflict with a previous annotation.
         # Ex:
         #     User.objects.annotate(foo=...).prefetch_related(Prefetch(...,to_attr="foo"))
