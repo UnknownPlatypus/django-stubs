@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Literal
 
-from django.core.exceptions import FieldDoesNotExist, FieldError
+from django.core.exceptions import FieldError
 from django.db.models.base import Model
 from django.db.models.fields.related import RelatedField
 from django.db.models.fields.related_descriptors import (
@@ -18,10 +18,13 @@ from mypy.plugin import FunctionContext, MethodContext
 from mypy.types import AnyType, Instance, LiteralType, ProperType, TupleType, TypedDictType, TypeOfAny, get_proper_type
 from mypy.types import Type as MypyType
 
-from django.db.models import Field
-from django.db.models.options import Options
 from mypy_django_plugin.django.context import DjangoContext, LookupsAreUnsupported
 from mypy_django_plugin.lib import fullnames, helpers
+from mypy_django_plugin.lib.field_validators import (
+    BulkCreateUniqueFieldValidator,
+    BulkCreateUpdateFieldValidator,
+    BulkUpdateFieldValidator,
+)
 from mypy_django_plugin.lib.helpers import DjangoModel
 from mypy_django_plugin.transformers.models import get_annotated_type
 
@@ -772,84 +775,6 @@ def validate_select_related(ctx: MethodContext, django_context: DjangoContext) -
     return ctx.default_return_type
 
 
-class FieldValidator:
-    """Base field validator for QuerySet methods with declarative validation."""
-
-    __slots__ = ("ctx", "opts", "field_name", "method", "field")
-
-    def __init__(self, ctx: MethodContext, model_cls: type[Model], field_name: str, method: str):
-        self.ctx = ctx
-        self.opts = model_cls._meta
-        self.field_name = field_name if field_name != "pk" else self.opts.pk.name
-        self.method = method
-        self.field: Field | None = None
-
-
-    def must_be_valid_field(self) -> bool:
-        """Lookup the field in the model's options. Returns False if not found."""
-        try:
-            self.field = self.opts.get_field(self.field_name)
-            return True
-        except FieldDoesNotExist as e:
-            self.ctx.api.fail(str(e), self.ctx.context)
-            return False
-
-    def must_be_concrete(self) -> bool:
-        """Validate that field is concrete and not many-to-many."""
-        assert self.field is not None, "must_be_valid_field() must be called first"
-
-        if not self.field.concrete or self.field.many_to_many:
-            self.ctx.api.fail(
-                f'"{self.method}()" can only be used with concrete fields. Got "{self.field_name}"',
-                self.ctx.context
-            )
-            return False
-        return True
-
-    def must_not_be_pk(self, custom_message: str | None = None) -> bool:
-        """Validate that field is not a primary key."""
-        assert self.field is not None, "must_be_valid_field() must be called first"
-
-        all_pk_fields = set(self.opts.pk_fields)
-        for parent in self.opts.all_parents:
-            all_pk_fields.update(parent._meta.pk_fields)
-
-        if self.field in all_pk_fields:
-            message = custom_message or f'"{self.method}()" cannot be used with primary key fields. Got "{self.field_name}"'
-            self.ctx.api.fail(message, self.ctx.context)
-            return False
-        return True
-
-    def validate(self) -> bool:
-        """Override in subclasses to define validation logic."""
-        raise NotImplementedError
-
-
-class BulkUpdateFieldValidator(FieldValidator):
-
-    def validate(self) -> bool:
-        return self.must_be_valid_field() and self.must_be_concrete() and self.must_not_be_pk()
-
-
-class BulkCreateUpdateFieldValidator(FieldValidator):
-
-    def validate(self) -> bool:
-        return (
-            self.must_be_valid_field()
-            and self.must_be_concrete()
-            and self.must_not_be_pk(
-                f'"{self.method}()" cannot be used with primary key fields in update_fields. Got "{self.field_name}"'
-            )
-        )
-
-
-class BulkCreateUniqueFieldValidator(FieldValidator):
-    def validate(self) -> bool:
-        return (
-            self.must_be_valid_field()
-            and self.must_be_concrete()
-        )
-
 def validate_bulk_update(
     ctx: MethodContext, django_context: DjangoContext, method: Literal["bulk_update", "abulk_update"]
 ) -> MypyType:
@@ -879,6 +804,7 @@ def validate_bulk_update(
 
     return ctx.default_return_type
 
+
 def validate_bulk_create(
     ctx: MethodContext, django_context: DjangoContext, method: Literal["bulk_create", "abulk_create"]
 ) -> MypyType:
@@ -893,22 +819,16 @@ def validate_bulk_create(
     ):
         return ctx.default_return_type
 
-    # Validate update_fields (arg index 3)
-    if (
-        len(ctx.args) >= 4
-        and ctx.args[3]
-        and isinstance((update_fields_args := ctx.args[3][0]), (ListExpr, TupleExpr, SetExpr))
+    if isinstance(
+        (update_fields_args := helpers.get_call_argument_by_name(ctx, "update_fields")), (ListExpr, TupleExpr, SetExpr)
     ):
         for field_arg in update_fields_args.items:
             field_name = helpers.resolve_string_attribute_value(field_arg, django_context)
             if field_name is not None:
                 BulkCreateUpdateFieldValidator(ctx, django_model.cls, field_name, method).validate()
 
-    # Validate unique_fields (arg index 4)
-    if (
-        len(ctx.args) >= 5
-        and ctx.args[4]
-        and isinstance((unique_fields_args := ctx.args[4][0]), (ListExpr, TupleExpr, SetExpr))
+    if isinstance(
+        (unique_fields_args := helpers.get_call_argument_by_name(ctx, "unique_fields")), (ListExpr, TupleExpr, SetExpr)
     ):
         for field_arg in unique_fields_args.items:
             field_name = helpers.resolve_string_attribute_value(field_arg, django_context)
