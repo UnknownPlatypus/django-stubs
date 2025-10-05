@@ -785,7 +785,7 @@ class FieldValidator:
         self.field: Field | None = None
 
 
-    def lookup_field(self) -> bool:
+    def must_be_valid_field(self) -> bool:
         """Lookup the field in the model's options. Returns False if not found."""
         try:
             self.field = self.opts.get_field(self.field_name)
@@ -796,7 +796,7 @@ class FieldValidator:
 
     def must_be_concrete(self) -> bool:
         """Validate that field is concrete and not many-to-many."""
-        assert self.field is not None, "lookup_field() must be called first"
+        assert self.field is not None, "must_be_valid_field() must be called first"
 
         if not self.field.concrete or self.field.many_to_many:
             self.ctx.api.fail(
@@ -808,7 +808,7 @@ class FieldValidator:
 
     def must_not_be_pk(self, custom_message: str | None = None) -> bool:
         """Validate that field is not a primary key."""
-        assert self.field is not None, "lookup_field() must be called first"
+        assert self.field is not None, "must_be_valid_field() must be called first"
 
         all_pk_fields = set(self.opts.pk_fields)
         for parent in self.opts.all_parents:
@@ -826,18 +826,16 @@ class FieldValidator:
 
 
 class BulkUpdateFieldValidator(FieldValidator):
-    """Validator for bulk_update fields: must be concrete and not a primary key."""
 
     def validate(self) -> bool:
-        return self.lookup_field() and self.must_be_concrete() and self.must_not_be_pk()
+        return self.must_be_valid_field() and self.must_be_concrete() and self.must_not_be_pk()
 
 
 class BulkCreateUpdateFieldValidator(FieldValidator):
-    """Validator for bulk_create's update_fields argument: must be concrete and not a primary key."""
 
     def validate(self) -> bool:
         return (
-            self.lookup_field()
+            self.must_be_valid_field()
             and self.must_be_concrete()
             and self.must_not_be_pk(
                 f'"{self.method}()" cannot be used with primary key fields in update_fields. Got "{self.field_name}"'
@@ -846,20 +844,11 @@ class BulkCreateUpdateFieldValidator(FieldValidator):
 
 
 class BulkCreateUniqueFieldValidator(FieldValidator):
-    """Validator for bulk_create's unique_fields argument: must be concrete, allows primary keys."""
-
     def validate(self) -> bool:
         return (
-            self.lookup_field()
+            self.must_be_valid_field()
             and self.must_be_concrete()
         )
-
-
-def _validate_bulk_update_field(
-    ctx: MethodContext, model_cls: type[Model], field_name: str, method: Literal["bulk_update", "abulk_update"]
-) -> bool:
-    return BulkUpdateFieldValidator(ctx, model_cls, field_name, method).validate()
-
 
 def validate_bulk_update(
     ctx: MethodContext, django_context: DjangoContext, method: Literal["bulk_update", "abulk_update"]
@@ -886,30 +875,9 @@ def validate_bulk_update(
     for field_arg in fields_args.items:
         field_name = helpers.resolve_string_attribute_value(field_arg, django_context)
         if field_name is not None:
-            _validate_bulk_update_field(ctx, django_model.cls, field_name, method)
+            BulkUpdateFieldValidator(ctx, django_model.cls, field_name, method).validate()
 
     return ctx.default_return_type
-
-
-def _validate_bulk_create_update_field(
-    ctx: MethodContext,
-    model_cls: type[Model],
-    field_name: str,
-    method: Literal["bulk_create", "abulk_create"],
-) -> bool:
-    """Validate a field name for bulk_create's update_fields argument."""
-    return BulkCreateUpdateFieldValidator(ctx, model_cls, field_name, method).validate()
-
-
-def _validate_bulk_create_unique_field(
-    ctx: MethodContext,
-    model_cls: type[Model],
-    field_name: str,
-    method: Literal["bulk_create", "abulk_create"],
-) -> bool:
-    """Validate a field name for bulk_create's unique_fields argument."""
-    return BulkCreateUniqueFieldValidator(ctx, model_cls, field_name, method).validate()
-
 
 def validate_bulk_create(
     ctx: MethodContext, django_context: DjangoContext, method: Literal["bulk_create", "abulk_create"]
@@ -934,7 +902,7 @@ def validate_bulk_create(
         for field_arg in update_fields_args.items:
             field_name = helpers.resolve_string_attribute_value(field_arg, django_context)
             if field_name is not None:
-                _validate_bulk_create_update_field(ctx, django_model.cls, field_name, method)
+                BulkCreateUpdateFieldValidator(ctx, django_model.cls, field_name, method).validate()
 
     # Validate unique_fields (arg index 4)
     if (
@@ -945,6 +913,6 @@ def validate_bulk_create(
         for field_arg in unique_fields_args.items:
             field_name = helpers.resolve_string_attribute_value(field_arg, django_context)
             if field_name is not None:
-                _validate_bulk_create_unique_field(ctx, django_model.cls, field_name, method)
+                BulkCreateUniqueFieldValidator(ctx, django_model.cls, field_name, method).validate()
 
     return ctx.default_return_type
