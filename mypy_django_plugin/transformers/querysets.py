@@ -18,6 +18,8 @@ from mypy.plugin import FunctionContext, MethodContext
 from mypy.types import AnyType, Instance, LiteralType, ProperType, TupleType, TypedDictType, TypeOfAny, get_proper_type
 from mypy.types import Type as MypyType
 
+from django.db.models import Field
+from django.db.models.options import Options
 from mypy_django_plugin.django.context import DjangoContext, LookupsAreUnsupported
 from mypy_django_plugin.lib import fullnames, helpers
 from mypy_django_plugin.lib.helpers import DjangoModel
@@ -770,6 +772,22 @@ def validate_select_related(ctx: MethodContext, django_context: DjangoContext) -
     return ctx.default_return_type
 
 
+def _check_is_concrete_field(ctx: MethodContext, field: Field, field_name: str, method: str):
+    if not field.concrete or field.many_to_many:
+        ctx.api.fail(f'"{method}()" can only be used with concrete fields. Got "{field_name}"', ctx.context)
+        return False
+    return True
+
+def _check_is_not_pk_field(ctx: MethodContext, field: Field, opts: Options, field_name: str, method: str):
+    all_pk_fields = set(opts.pk_fields)
+    for parent in opts.all_parents:
+        all_pk_fields.update(parent._meta.pk_fields)
+
+    if field in all_pk_fields:
+        ctx.api.fail(f'"{method}()" cannot be used with primary key fields. Got "{field_name}"', ctx.context)
+        return False
+    return True
+
 def _validate_bulk_update_field(
     ctx: MethodContext, model_cls: type[Model], field_name: str, method: Literal["bulk_update", "abulk_update"]
 ) -> bool:
@@ -780,19 +798,7 @@ def _validate_bulk_update_field(
         ctx.api.fail(str(e), ctx.context)
         return False
 
-    if not field.concrete or field.many_to_many:
-        ctx.api.fail(f'"{method}()" can only be used with concrete fields. Got "{field_name}"', ctx.context)
-        return False
-
-    all_pk_fields = set(opts.pk_fields)
-    for parent in opts.all_parents:
-        all_pk_fields.update(parent._meta.pk_fields)
-
-    if field in all_pk_fields:
-        ctx.api.fail(f'"{method}()" cannot be used with primary key fields. Got "{field_name}"', ctx.context)
-        return False
-
-    return True
+    return _check_is_concrete_field(ctx, field, field_name, method) and _check_is_not_pk_field(ctx, field, opts, field_name, method)
 
 
 def validate_bulk_update(
@@ -821,5 +827,86 @@ def validate_bulk_update(
         field_name = helpers.resolve_string_attribute_value(field_arg, django_context)
         if field_name is not None:
             _validate_bulk_update_field(ctx, django_model.cls, field_name, method)
+
+    return ctx.default_return_type
+
+
+def _validate_bulk_create_field(
+    ctx: MethodContext,
+    model_cls: type[Model],
+    field_name: str,
+    method: Literal["bulk_create", "abulk_create"],
+    *,
+    allow_pk: bool = False,
+) -> bool:
+    """
+    Validate a field name for bulk_create's update_fields or unique_fields.
+
+    Args:
+        allow_pk: If True, allows primary key fields (for unique_fields). If False, disallows them (for update_fields).
+    """
+    opts = model_cls._meta
+
+    # Handle 'pk' alias for unique_fields
+    if field_name == "pk" and allow_pk:
+        field_name = opts.pk.name
+
+    try:
+        field = opts.get_field(field_name)
+    except FieldDoesNotExist as e:
+        ctx.api.fail(str(e), ctx.context)
+        return False
+
+    if not field.concrete or field.many_to_many:
+        ctx.api.fail(f'"{method}()" can only be used with concrete fields. Got "{field_name}"', ctx.context)
+        return False
+
+    if not allow_pk:
+        all_pk_fields = set(opts.pk_fields)
+        for parent in opts.all_parents:
+            all_pk_fields.update(parent._meta.pk_fields)
+
+        if field in all_pk_fields:
+            ctx.api.fail(f'"{method}()" cannot be used with primary key fields in update_fields. Got "{field_name}"', ctx.context)
+            return False
+
+    return True
+
+
+def validate_bulk_create(
+    ctx: MethodContext, django_context: DjangoContext, method: Literal["bulk_create", "abulk_create"]
+) -> MypyType:
+    """
+    Type check the `update_fields` and `unique_fields` arguments passed to `QuerySet.bulk_create(...)`.
+
+    Extracted and adapted from `django.db.models.query.QuerySet.bulk_create`
+    """
+    if not (
+        isinstance(ctx.type, Instance)
+        and (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is not None
+    ):
+        return ctx.default_return_type
+
+    # Validate update_fields (arg index 3)
+    if (
+        len(ctx.args) >= 4
+        and ctx.args[3]
+        and isinstance((update_fields_args := ctx.args[3][0]), (ListExpr, TupleExpr, SetExpr))
+    ):
+        for field_arg in update_fields_args.items:
+            field_name = helpers.resolve_string_attribute_value(field_arg, django_context)
+            if field_name is not None:
+                _validate_bulk_create_field(ctx, django_model.cls, field_name, method, allow_pk=False)
+
+    # Validate unique_fields (arg index 4)
+    if (
+        len(ctx.args) >= 5
+        and ctx.args[4]
+        and isinstance((unique_fields_args := ctx.args[4][0]), (ListExpr, TupleExpr, SetExpr))
+    ):
+        for field_arg in unique_fields_args.items:
+            field_name = helpers.resolve_string_attribute_value(field_arg, django_context)
+            if field_name is not None:
+                _validate_bulk_create_field(ctx, django_model.cls, field_name, method, allow_pk=True)
 
     return ctx.default_return_type
