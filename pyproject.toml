@@ -67,11 +67,15 @@ pyright = [
 pyrefly = [
   "pyrefly==0.54.0",
 ]
+ty = [
+  "ty==0.0.19",
+]
 
 dev = [
   {include-group = "tests"},
   {include-group = "pyright"},
   {include-group = "pyrefly"},
+  {include-group = "ty"},
 ]
 
 [project.urls]
@@ -157,3 +161,7 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["django_stubs_ext", "mypy_django_plugin"]
 split-on-trailing-comma = false
+
+[tool.ty.analysis]
+# Disable support for `type: ignore` comments (you need to use `# ty: ignore` instead)
+respect-type-ignore-comments = false
