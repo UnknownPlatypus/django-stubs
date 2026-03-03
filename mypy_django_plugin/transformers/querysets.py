@@ -930,3 +930,35 @@ def validate_order_by(ctx: MethodContext, django_context: DjangoContext) -> Mypy
         _validate_order_by_lookup(ctx, django_model.cls, parts)
 
     return ctx.default_return_type
+
+
+def _validate_defer_only_fields(
+    ctx: MethodContext, model_cls: type[Model], fields: list[str], *, is_defer: bool
+) -> None:
+    query = Query(model_cls)
+    if is_defer:
+        query.add_deferred_loading(fields)
+    else:
+        query.add_immediate_loading(fields)
+    try:
+        query.get_select_mask()
+    except (FieldDoesNotExist, FieldError) as exc:
+        ctx.api.fail(str(exc), ctx.context)
+
+
+def validate_defer_only(ctx: MethodContext, django_context: DjangoContext, *, is_defer: bool) -> MypyType:
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
+        return ctx.default_return_type
+
+    field_names = _extract_field_names_from_varargs(ctx)
+    if not field_names:
+        return ctx.default_return_type
+
+    # Skip validation for annotated fields (not supported by defer/only)
+    if django_model.typ.extra_attrs:
+        field_names = [f for f in field_names if f.split("__")[0] not in django_model.typ.extra_attrs.attrs]
+
+    if field_names:
+        _validate_defer_only_fields(ctx, django_model.cls, field_names, is_defer=is_defer)
+
+    return ctx.default_return_type

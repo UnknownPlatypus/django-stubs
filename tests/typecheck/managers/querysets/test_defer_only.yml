@@ -1,0 +1,182 @@
+-   case: defer_valid_fields
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article, Author
+        from django.db.models import F
+
+        # Simple fields
+        Article.objects.defer("title")
+        Article.objects.defer("content")
+        Article.objects.defer("published")
+
+        # Multiple fields
+        Article.objects.defer("title", "content")
+
+        # FK field (by name and attname)
+        Article.objects.defer("author")
+        Article.objects.defer("author_id")
+
+        # FK traversal
+        Article.objects.defer("author__name")
+        Article.objects.defer("author__email")
+
+        # M2M (silently ignored by Django)
+        Article.objects.defer("tags")
+
+        # Clear deferrals
+        Article.objects.defer(None)
+
+        # Annotated fields (skipped by validation)
+        Article.objects.annotate(foo=F("id")).defer("foo")
+
+        # Non-literal strings (skipped by validation)
+        field: str = "title"
+        Article.objects.defer(field)
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Author(models.Model):
+                    name = models.CharField(max_length=100)
+                    email = models.EmailField()
+
+                class Tag(models.Model):
+                    name = models.CharField(max_length=50)
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    content = models.TextField()
+                    published = models.BooleanField(default=False)
+                    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+                    tags = models.ManyToManyField(Tag)
+
+
+-   case: defer_invalid_fields
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article, Author
+        from typing import Literal
+
+        # Non-existent field
+        Article.objects.defer("nonexistent")  # E: Article has no field named 'nonexistent'  [misc]
+
+        # Invalid chained lookup
+        Article.objects.defer("author__nonexistent")  # E: Author has no field named 'nonexistent'  [misc]
+
+        # Nested lookup on non-relation field
+        Article.objects.defer("title__something")  # E: something  [misc]
+
+        # Literal typed invalid
+        field: Literal["nonexistent"] = "nonexistent"
+        Article.objects.defer(field)  # E: Article has no field named 'nonexistent'  [misc]
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Author(models.Model):
+                    name = models.CharField(max_length=100)
+                    email = models.EmailField()
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    content = models.TextField()
+                    published = models.BooleanField(default=False)
+                    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+
+
+-   case: only_valid_fields
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article, Author
+        from django.db.models import F
+
+        # Simple fields
+        Article.objects.only("title")
+        Article.objects.only("content")
+        Article.objects.only("published")
+
+        # Multiple fields
+        Article.objects.only("title", "content")
+
+        # FK field (by name and attname)
+        Article.objects.only("author")
+        Article.objects.only("author_id")
+
+        # PK shortcut (resolved by add_immediate_loading)
+        Article.objects.only("pk")
+
+        # FK traversal
+        Article.objects.only("author__name")
+        Article.objects.only("author__email")
+
+        # M2M (accepted by Django)
+        Article.objects.only("tags")
+
+        # Annotated fields (skipped by validation)
+        Article.objects.annotate(foo=F("id")).only("foo", "title")
+
+        # Non-literal strings (skipped by validation)
+        field: str = "title"
+        Article.objects.only(field)
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Author(models.Model):
+                    name = models.CharField(max_length=100)
+                    email = models.EmailField()
+
+                class Tag(models.Model):
+                    name = models.CharField(max_length=50)
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    content = models.TextField()
+                    published = models.BooleanField(default=False)
+                    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+                    tags = models.ManyToManyField(Tag)
+
+
+-   case: only_invalid_fields
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article, Author
+        from typing import Literal
+
+        # Non-existent field
+        Article.objects.only("nonexistent")  # E: Article has no field named 'nonexistent'  [misc]
+
+        # Invalid chained lookup
+        Article.objects.only("author__nonexistent")  # E: Author has no field named 'nonexistent'  [misc]
+
+        # Nested lookup on non-relation field
+        Article.objects.only("title__something")  # E: something  [misc]
+
+        # Literal typed invalid
+        field: Literal["nonexistent"] = "nonexistent"
+        Article.objects.only(field)  # E: Article has no field named 'nonexistent'  [misc]
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Author(models.Model):
+                    name = models.CharField(max_length=100)
+                    email = models.EmailField()
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    content = models.TextField()
+                    published = models.BooleanField(default=False)
+                    author = models.ForeignKey(Author, on_delete=models.CASCADE)
