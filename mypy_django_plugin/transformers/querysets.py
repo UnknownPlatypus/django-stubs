@@ -960,3 +960,58 @@ def validate_defer_only(ctx: MethodContext, django_context: DjangoContext, *, is
         _validate_defer_only_fields(ctx, django_model.cls, field_names, is_defer=is_defer)
 
     return ctx.default_return_type
+
+
+def validate_distinct(ctx: MethodContext, django_context: DjangoContext) -> MypyType:
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
+        return ctx.default_return_type
+
+    for lookup_value in _extract_field_names_from_varargs(ctx):
+        parts = lookup_value.split(LOOKUP_SEP)
+        if django_model.typ.extra_attrs and parts[0] in django_model.typ.extra_attrs.attrs:
+            continue
+        _validate_order_by_lookup(ctx, django_model.cls, parts)
+
+    return ctx.default_return_type
+
+
+def validate_update(ctx: MethodContext, django_context: DjangoContext) -> MypyType:
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
+        return ctx.default_return_type
+
+    kwargs = gather_kwargs(ctx)
+    if not kwargs:
+        return ctx.default_return_type
+
+    for field_name in kwargs:
+        field = _try_get_field(ctx, django_model.cls, field_name)
+        if field is not None:
+            _check_field_concrete(ctx, field, field_name, method="update")
+
+    return ctx.default_return_type
+
+
+def validate_in_bulk(ctx: MethodContext, django_context: DjangoContext) -> MypyType:
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
+        return ctx.default_return_type
+
+    field_name_expr = helpers.get_call_argument_by_name(ctx, "field_name")
+    if field_name_expr is None:
+        return ctx.default_return_type
+    field_name = helpers.resolve_string_attribute_value(field_name_expr, django_context)
+    if field_name is None or field_name == "pk":
+        return ctx.default_return_type
+
+    field = _try_get_field(ctx, django_model.cls, field_name)
+    if field is None:
+        return ctx.default_return_type
+
+    opts = django_model.cls._meta
+    unique_fields = [c.fields[0] for c in opts.total_unique_constraints if len(c.fields) == 1]
+    if not field.unique and field_name not in unique_fields:
+        ctx.api.fail(
+            f'"in_bulk()"\'s field_name must be a unique field but "{field_name}" isn\'t',
+            ctx.context,
+        )
+
+    return ctx.default_return_type
