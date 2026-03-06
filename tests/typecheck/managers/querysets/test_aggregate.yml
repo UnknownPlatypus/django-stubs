@@ -1,0 +1,68 @@
+-   case: aggregate_valid
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article
+        from django.db.models import Avg, Sum, Count, F, Value
+
+        # Valid: kwarg with Aggregate
+        Article.objects.aggregate(avg_price=Avg("price"))
+
+        # Valid: positional Aggregate (has default_alias)
+        Article.objects.aggregate(Avg("price"))
+        Article.objects.aggregate(Count("id"))
+        Article.objects.aggregate(Sum("price"))
+
+        # Valid: multiple positional + kwarg
+        Article.objects.aggregate(Avg("price"), total=Sum("price"))
+
+        # Valid: kwarg with F expression
+        Article.objects.aggregate(x=F("price"))
+
+        # Valid: kwarg with Value
+        Article.objects.aggregate(x=Value(1))
+
+        # Async variant
+        async def test_async() -> None:
+            await Article.objects.aaggregate(avg_price=Avg("price"))
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    price = models.IntegerField(default=0)
+
+
+-   case: aggregate_invalid
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article
+        from django.db.models import F, Value
+
+        # Invalid: positional string (no resolve_expression)
+        Article.objects.aggregate("price")  # E: QuerySet.aggregate() received non-expression(s): price.  [misc]
+
+        # Invalid: kwarg with string value (no resolve_expression)
+        Article.objects.aggregate(x="price")  # E: QuerySet.aggregate() received non-expression(s): x.  [misc]
+
+        # Invalid: kwarg with int value (no resolve_expression)
+        Article.objects.aggregate(x=1)  # E: QuerySet.aggregate() received non-expression(s): x.  [misc]
+
+        # Invalid: positional F expression (no default_alias)
+        Article.objects.aggregate(F("price"))  # E: Complex aggregates require an alias  [misc]
+
+        # Invalid: positional Value (no default_alias)
+        Article.objects.aggregate(Value(1))  # E: Complex aggregates require an alias  [misc]
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    price = models.IntegerField(default=0)

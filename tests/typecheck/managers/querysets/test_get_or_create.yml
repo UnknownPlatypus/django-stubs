@@ -1,0 +1,71 @@
+-   case: get_or_create_valid
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article, Author
+
+        a = Author(name="test")
+
+        # Valid: no defaults
+        Article.objects.get_or_create(title="hello", author=a)
+
+        # Valid: defaults with valid fields
+        Article.objects.get_or_create(title="hello", author=a, defaults={"published": True})
+
+        # Valid: defaults with FK id field
+        Article.objects.get_or_create(title="hello", defaults={"author_id": 1})
+
+        # Valid: non-dict-literal defaults (not checked)
+        d = {"nonexistent": 1}
+        Article.objects.get_or_create(title="hello", author=a, defaults=d)
+
+        # Async variant
+        async def test_async() -> None:
+            await Article.objects.aget_or_create(title="hello", author=a, defaults={"published": True})
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Author(models.Model):
+                    name = models.CharField(max_length=100)
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    content = models.TextField(default="")
+                    published = models.BooleanField(default=False)
+                    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+
+
+-   case: get_or_create_invalid
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article, Author
+
+        a = Author(name="test")
+
+        # Invalid: defaults with nonexistent field
+        Article.objects.get_or_create(title="hello", author=a, defaults={"nonexistent": 1})  # E: Invalid field name(s) for model Article: 'nonexistent'.  [misc]
+
+        # Invalid: defaults with multiple bad fields
+        Article.objects.get_or_create(title="hello", author=a, defaults={"bad1": 1, "bad2": 2})  # E: Invalid field name(s) for model Article: 'bad1', 'bad2'.  [misc]
+
+        # Async variant
+        async def test_async() -> None:
+            await Article.objects.aget_or_create(title="hello", author=a, defaults={"nonexistent": 1})  # E: Invalid field name(s) for model Article: 'nonexistent'.  [misc]
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Author(models.Model):
+                    name = models.CharField(max_length=100)
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    content = models.TextField(default="")
+                    published = models.BooleanField(default=False)
+                    author = models.ForeignKey(Author, on_delete=models.CASCADE)

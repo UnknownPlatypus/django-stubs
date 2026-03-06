@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Literal
 from django.core.exceptions import FieldDoesNotExist, FieldError
 from django.db.models.base import Model
 from django.db.models.constants import LOOKUP_SEP
+from django.db.models.fields import DateField
 from django.db.models.fields.related import RelatedField
 from django.db.models.fields.related_descriptors import (
     ForwardManyToOneDescriptor,
@@ -15,7 +16,18 @@ from django.db.models.fields.reverse_related import ForeignObjectRel
 from django.db.models.sql.query import Query
 from mypy.checker import TypeChecker
 from mypy.errorcodes import NO_REDEF
-from mypy.nodes import ARG_NAMED, ARG_NAMED_OPT, ARG_STAR, CallExpr, Expression, ListExpr, SetExpr, TupleExpr
+from mypy.nodes import (
+    ARG_NAMED,
+    ARG_NAMED_OPT,
+    ARG_STAR,
+    CallExpr,
+    DictExpr,
+    Expression,
+    ListExpr,
+    SetExpr,
+    StrExpr,
+    TupleExpr,
+)
 from mypy.plugin import FunctionContext, MethodContext
 from mypy.types import AnyType, Instance, LiteralType, ProperType, TupleType, TypedDictType, TypeOfAny, get_proper_type
 from mypy.types import Type as MypyType
@@ -1008,10 +1020,155 @@ def validate_in_bulk(ctx: MethodContext, django_context: DjangoContext) -> MypyT
 
     opts = django_model.cls._meta
     unique_fields = [c.fields[0] for c in opts.total_unique_constraints if len(c.fields) == 1]
-    if not field.unique and field_name not in unique_fields:
+    if not getattr(field, "unique", False) and field_name not in unique_fields:
         ctx.api.fail(
             f'"in_bulk()"\'s field_name must be a unique field but "{field_name}" isn\'t',
             ctx.context,
         )
+
+    return ctx.default_return_type
+
+
+def _extract_dict_literal_keys(expr: Expression, django_context: DjangoContext) -> list[str] | None:
+    """Extract string keys from a dict literal expression. Returns None if not a dict literal."""
+    if not isinstance(expr, DictExpr):
+        return None
+    keys: list[str] = []
+    for key_expr, _value_expr in expr.items:
+        if key_expr is None:
+            # ** unpacking — can't resolve statically
+            return None
+        if isinstance(key_expr, StrExpr):
+            keys.append(key_expr.value)
+        else:
+            # Non-literal key, skip it but continue checking others
+            pass
+    return keys
+
+
+def _validate_model_params(ctx: MethodContext, model_cls: type[Model], field_names: list[str], method: str) -> None:
+    """Validate field names like Django's _extract_model_params does."""
+    property_names: frozenset[str] = getattr(model_cls._meta, "_property_names", frozenset())
+    invalid_params = []
+    for param in field_names:
+        try:
+            model_cls._meta.get_field(param)
+        except FieldDoesNotExist:
+            if not (param in property_names and getattr(getattr(model_cls, param, None), "fset", None)):
+                invalid_params.append(param)
+    if invalid_params:
+        joined = "', '".join(sorted(invalid_params))
+        ctx.api.fail(
+            f"Invalid field name(s) for model {model_cls._meta.object_name}: '{joined}'.",
+            ctx.context,
+        )
+
+
+def validate_get_or_create(ctx: MethodContext, django_context: DjangoContext) -> MypyType:
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
+        return ctx.default_return_type
+
+    defaults_expr = helpers.get_call_argument_by_name(ctx, "defaults")
+    if defaults_expr is None:
+        return ctx.default_return_type
+
+    keys = _extract_dict_literal_keys(defaults_expr, django_context)
+    if keys:
+        _validate_model_params(ctx, django_model.cls, keys, "get_or_create")
+
+    return ctx.default_return_type
+
+
+def validate_update_or_create(ctx: MethodContext, django_context: DjangoContext) -> MypyType:
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
+        return ctx.default_return_type
+
+    create_defaults_expr = helpers.get_call_argument_by_name(ctx, "create_defaults")
+
+    if create_defaults_expr is not None:
+        keys = _extract_dict_literal_keys(create_defaults_expr, django_context)
+        if keys:
+            _validate_model_params(ctx, django_model.cls, keys, "update_or_create")
+    else:
+        # When create_defaults is not given, defaults is used as create_defaults
+        defaults_expr = helpers.get_call_argument_by_name(ctx, "defaults")
+        if defaults_expr is not None:
+            keys = _extract_dict_literal_keys(defaults_expr, django_context)
+            if keys:
+                _validate_model_params(ctx, django_model.cls, keys, "update_or_create")
+
+    return ctx.default_return_type
+
+
+def validate_dates_datetimes(ctx: MethodContext, django_context: DjangoContext, *, is_datetimes: bool) -> MypyType:
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
+        return ctx.default_return_type
+
+    field_name_expr = helpers.get_call_argument_by_name(ctx, "field_name")
+    if field_name_expr is None:
+        return ctx.default_return_type
+    field_name = helpers.resolve_string_attribute_value(field_name_expr, django_context)
+    if field_name is None:
+        return ctx.default_return_type
+
+    field = _try_get_field(ctx, django_model.cls, field_name)
+    if field is None:
+        return ctx.default_return_type
+
+    if not isinstance(field, DateField):
+        # DateTimeField is a subclass of DateField, so this catches both
+        ctx.api.fail(
+            f"'{field_name}' isn't a DateField, TimeField, or DateTimeField.",
+            ctx.context,
+        )
+        return ctx.default_return_type
+
+    if is_datetimes and type(field) is DateField:
+        ctx.api.fail(
+            f"Cannot truncate DateField '{field_name}' to DateTimeField.",
+            ctx.context,
+        )
+
+    return ctx.default_return_type
+
+
+def _check_has_resolve_expression(ctx: MethodContext, typ: MypyType, arg_repr: str) -> bool:
+    """Check if a type has a resolve_expression method (i.e. is a Django expression)."""
+    proper = get_proper_type(typ)
+    if isinstance(proper, AnyType):
+        return True
+    if isinstance(proper, Instance) and proper.type.get("resolve_expression"):
+        return True
+    ctx.api.fail(
+        f"QuerySet.aggregate() received non-expression(s): {arg_repr}.",
+        ctx.context,
+    )
+    return False
+
+
+def validate_aggregate(ctx: MethodContext, django_context: DjangoContext) -> MypyType:
+    if helpers.get_model_info_from_qs_ctx(ctx, django_context) is None:
+        return ctx.default_return_type
+
+    # Check positional args (index 0 = *args)
+    if ctx.arg_types and ctx.arg_types[0]:
+        for expr, typ in zip(ctx.args[0], ctx.arg_types[0], strict=False):
+            arg_repr = (
+                helpers.resolve_string_attribute_value(expr, django_context) if isinstance(expr, StrExpr) else None
+            )
+            if arg_repr is None:
+                arg_repr = str(expr)
+            if not _check_has_resolve_expression(ctx, typ, arg_repr):
+                continue
+            # Check positional args have default_alias
+            proper = get_proper_type(typ)
+            if isinstance(proper, Instance) and not proper.type.get("default_alias"):
+                ctx.api.fail("Complex aggregates require an alias", ctx.context)
+
+    # Check kwargs values (index 1 = **kwargs)
+    kwargs = gather_kwargs(ctx)
+    if kwargs:
+        for name, typ in kwargs.items():
+            _check_has_resolve_expression(ctx, typ, name)
 
     return ctx.default_return_type

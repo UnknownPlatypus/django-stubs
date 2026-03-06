@@ -1,0 +1,113 @@
+-   case: dates_valid
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article
+
+        # DateField — valid for dates()
+        Article.objects.dates("pub_date", "month")
+        Article.objects.dates("pub_date", "year")
+        Article.objects.dates("pub_date", "week")
+        Article.objects.dates("pub_date", "day")
+
+        # DateTimeField — valid for dates()
+        Article.objects.dates("pub_datetime", "month")
+
+        # Non-literal field_name (skipped)
+        field: str = "pub_date"
+        Article.objects.dates(field, "month")
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    pub_date = models.DateField(null=True)
+                    pub_datetime = models.DateTimeField(null=True)
+                    count = models.IntegerField(default=0)
+
+
+-   case: dates_invalid
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article
+
+        # IntegerField — not a date field
+        Article.objects.dates("count", "month")  # E: 'count' isn't a DateField, TimeField, or DateTimeField.  [misc]
+
+        # Non-existent field
+        Article.objects.dates("nonexistent", "month")  # E: Article has no field named 'nonexistent'  [misc]
+
+        # CharField — not a date field
+        Article.objects.dates("title", "month")  # E: 'title' isn't a DateField, TimeField, or DateTimeField.  [misc]
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    pub_date = models.DateField(null=True)
+                    pub_datetime = models.DateTimeField(null=True)
+                    count = models.IntegerField(default=0)
+
+
+-   case: datetimes_valid
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article
+
+        # DateTimeField — valid for datetimes()
+        Article.objects.datetimes("pub_datetime", "month")
+        Article.objects.datetimes("pub_datetime", "year")
+        Article.objects.datetimes("pub_datetime", "day")
+        Article.objects.datetimes("pub_datetime", "hour")
+        Article.objects.datetimes("pub_datetime", "minute")
+        Article.objects.datetimes("pub_datetime", "second")
+
+        # Non-literal field_name (skipped)
+        field: str = "pub_datetime"
+        Article.objects.datetimes(field, "month")
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    pub_date = models.DateField(null=True)
+                    pub_datetime = models.DateTimeField(null=True)
+                    count = models.IntegerField(default=0)
+
+
+-   case: datetimes_invalid
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article
+
+        # DateField — cannot truncate to DateTimeField
+        Article.objects.datetimes("pub_date", "month")  # E: Cannot truncate DateField 'pub_date' to DateTimeField.  [misc]
+
+        # IntegerField — not a date field
+        Article.objects.datetimes("count", "month")  # E: 'count' isn't a DateField, TimeField, or DateTimeField.  [misc]
+
+        # Non-existent field
+        Article.objects.datetimes("nonexistent", "month")  # E: Article has no field named 'nonexistent'  [misc]
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    pub_date = models.DateField(null=True)
+                    pub_datetime = models.DateTimeField(null=True)
+                    count = models.IntegerField(default=0)

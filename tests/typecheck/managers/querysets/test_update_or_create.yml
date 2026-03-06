@@ -1,0 +1,74 @@
+-   case: update_or_create_valid
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article, Author
+
+        a = Author(name="test")
+
+        # Valid: defaults with valid fields
+        Article.objects.update_or_create(title="hello", author=a, defaults={"published": True})
+
+        # Valid: create_defaults with valid fields
+        Article.objects.update_or_create(title="hello", author=a, create_defaults={"content": "hello"})
+
+        # Valid: both defaults and create_defaults
+        Article.objects.update_or_create(title="hello", author=a, defaults={"published": True}, create_defaults={"content": "hello"})
+
+        # Valid: non-dict-literal (not checked)
+        d = {"nonexistent": 1}
+        Article.objects.update_or_create(title="hello", author=a, defaults=d)
+
+        # Async variant
+        async def test_async() -> None:
+            await Article.objects.aupdate_or_create(title="hello", author=a, defaults={"published": True})
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Author(models.Model):
+                    name = models.CharField(max_length=100)
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    content = models.TextField(default="")
+                    published = models.BooleanField(default=False)
+                    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+
+
+-   case: update_or_create_invalid
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article, Author
+
+        a = Author(name="test")
+
+        # Invalid: defaults with nonexistent field (no create_defaults, so defaults used as create_defaults)
+        Article.objects.update_or_create(title="hello", author=a, defaults={"nonexistent": 1})  # E: Invalid field name(s) for model Article: 'nonexistent'.  [misc]
+
+        # Invalid: create_defaults with nonexistent field
+        Article.objects.update_or_create(title="hello", author=a, create_defaults={"nonexistent": 1})  # E: Invalid field name(s) for model Article: 'nonexistent'.  [misc]
+
+        # When create_defaults is given, defaults is NOT validated (used for setattr on update path)
+        Article.objects.update_or_create(title="hello", author=a, defaults={"nonexistent": 1}, create_defaults={"content": "hello"})
+
+        # Async variant
+        async def test_async() -> None:
+            await Article.objects.aupdate_or_create(title="hello", author=a, defaults={"nonexistent": 1})  # E: Invalid field name(s) for model Article: 'nonexistent'.  [misc]
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Author(models.Model):
+                    name = models.CharField(max_length=100)
+
+                class Article(models.Model):
+                    title = models.CharField(max_length=200)
+                    content = models.TextField(default="")
+                    published = models.BooleanField(default=False)
+                    author = models.ForeignKey(Author, on_delete=models.CASCADE)

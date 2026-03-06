@@ -194,6 +194,18 @@ class NewSemanalDjangoPlugin(Plugin):
             "aupdate": partial(querysets.validate_update, django_context=self.django_context),
             "in_bulk": partial(querysets.validate_in_bulk, django_context=self.django_context),
             "ain_bulk": partial(querysets.validate_in_bulk, django_context=self.django_context),
+            "get_or_create": partial(querysets.validate_get_or_create, django_context=self.django_context),
+            "aget_or_create": partial(querysets.validate_get_or_create, django_context=self.django_context),
+            "update_or_create": partial(querysets.validate_update_or_create, django_context=self.django_context),
+            "aupdate_or_create": partial(querysets.validate_update_or_create, django_context=self.django_context),
+            "dates": partial(
+                querysets.validate_dates_datetimes, django_context=self.django_context, is_datetimes=False
+            ),
+            "datetimes": partial(
+                querysets.validate_dates_datetimes, django_context=self.django_context, is_datetimes=True
+            ),
+            "aggregate": partial(querysets.validate_aggregate, django_context=self.django_context),
+            "aaggregate": partial(querysets.validate_aggregate, django_context=self.django_context),
         }
 
     def get_method_hook(self, fullname: str) -> Callable[[MethodContext], MypyType] | None:
