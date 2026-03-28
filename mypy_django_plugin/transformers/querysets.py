@@ -1068,3 +1068,42 @@ def validate_defer_only(ctx: MethodContext, django_context: DjangoContext, *, is
     _validate_defer_only_fields(ctx, django_model.cls, field_names, is_defer=is_defer)
 
     return ctx.default_return_type
+
+
+def resolve_annotated_queryset_method(ctx: MethodContext, typeddict_fullname: str) -> MypyType:
+    """
+    Resolve the return type of a custom queryset method that declares annotations
+    via WithAnnotations[_Model, SomeTypedDict] in its return type.
+
+    During semantic analysis, WithAnnotations[_Model, TD] with a TypeVar was stored
+    as metadata. Now during type checking, the TypeVar is resolved to a concrete model.
+    """
+    if not isinstance(ctx.type, Instance) or not ctx.type.args:
+        return ctx.default_return_type
+
+    model_type = get_proper_type(ctx.type.args[0])
+    if not isinstance(model_type, Instance) or not helpers.is_model_type(model_type.type):
+        return ctx.default_return_type
+
+    api = helpers.get_typechecker_api(ctx)
+    td_info = helpers.lookup_fully_qualified_typeinfo(api, typeddict_fullname)
+    if td_info is None or td_info.typeddict_type is None:
+        return ctx.default_return_type
+
+    annotated_type = get_annotated_type(api, model_type, fields_dict=td_info.typeddict_type)
+
+    default_return_type = get_proper_type(ctx.default_return_type)
+    if not isinstance(default_return_type, Instance):
+        return ctx.default_return_type
+
+    # Replace all model-typed args with the annotated model
+    new_args = []
+    for arg in default_return_type.args:
+        proper = get_proper_type(arg)
+        if isinstance(proper, Instance) and (
+            helpers.is_model_type(proper.type) or helpers.is_annotated_model(proper.type)
+        ):
+            new_args.append(annotated_type)
+        else:
+            new_args.append(arg)
+    return default_return_type.copy_modified(args=tuple(new_args))

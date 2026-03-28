@@ -655,3 +655,108 @@
                 from django.db import models
                 class User(models.Model):
                     username = models.CharField(max_length=100)
+
+# === Exploration for https://github.com/typeddjango/django-stubs/issues/2681 ===
+
+# Approach A: Generic queryset (proposed in issue comment), WithAnnotations in return type
+-   case: explore_2681_generic_qs_with_annotations
+    main: |
+        from typing_extensions import reveal_type
+        from myapp.models import FooModel
+
+        reveal_type(FooModel.objects)
+        reveal_type(FooModel.objects.all())
+        reveal_type(FooModel.objects.with_bar())
+        reveal_type(FooModel.objects.with_bar().with_baz())
+        reveal_type(FooModel.objects.with_bar().get())
+        reveal_type(FooModel.objects.with_bar().with_baz().get())
+    out: |
+        main:4: note: Revealed type is "myapp.models.BaseManagerFromFooQuerySet[myapp.models.FooModel]"
+        main:5: note: Revealed type is "myapp.models.FooQuerySet[myapp.models.FooModel]"
+        main:6: note: Revealed type is "myapp.models.FooQuerySet[myapp.models.FooModel@AnnotatedWith[TypedDict({'bar': builtins.str})]]"
+        main:7: note: Revealed type is "myapp.models.FooQuerySet[myapp.models.FooModel@AnnotatedWith[TypedDict({'bar': builtins.str, 'baz': builtins.str})]]"
+        main:8: note: Revealed type is "myapp.models.FooModel@AnnotatedWith[TypedDict({'bar': builtins.str})]"
+        main:9: note: Revealed type is "myapp.models.FooModel@AnnotatedWith[TypedDict({'bar': builtins.str, 'baz': builtins.str})]"
+    installed_apps:
+        - myapp
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from typing import TypeVar
+                from typing_extensions import TypedDict
+                from django.db import models
+                from django.db.models.expressions import Value
+                from django.db.models.manager import BaseManager
+                from django_stubs_ext import WithAnnotations
+
+                class BarDict(TypedDict):
+                    bar: str
+
+                class BazDict(TypedDict):
+                    baz: str
+
+                _Model = TypeVar("_Model", bound=models.Model, covariant=True)
+
+                class FooQuerySet(models.QuerySet[_Model]):
+                    def with_bar(self) -> "FooQuerySet[WithAnnotations[_Model, BarDict]]":
+                        return self.annotate(bar=Value("bar"))  # type: ignore[no-any-return]
+
+                    def with_baz(self) -> "FooQuerySet[WithAnnotations[_Model, BazDict]]":
+                        return self.annotate(baz=Value("baz"))  # type: ignore[no-any-return]
+
+                FooManager = BaseManager.from_queryset(FooQuerySet)
+
+                class FooModel(models.Model):
+                    name = models.CharField(max_length=100)
+                    objects = FooManager()
+
+# Direct queryset path (not via manager)
+-   case: explore_2681_direct_queryset_annotations
+    main: |
+        from typing_extensions import reveal_type
+        from myapp.models import FooModel, FooQuerySet
+
+        qs = FooModel.objects.all()
+        reveal_type(qs)
+        reveal_type(qs.with_bar())
+        reveal_type(qs.with_bar().with_baz())
+        reveal_type(qs.with_bar().get())
+    out: |
+        main:5: note: Revealed type is "myapp.models.FooQuerySet[myapp.models.FooModel]"
+        main:6: note: Revealed type is "myapp.models.FooQuerySet[myapp.models.FooModel@AnnotatedWith[TypedDict({'bar': builtins.str})]]"
+        main:7: note: Revealed type is "myapp.models.FooQuerySet[myapp.models.FooModel@AnnotatedWith[TypedDict({'bar': builtins.str, 'baz': builtins.str})]]"
+        main:8: note: Revealed type is "myapp.models.FooModel@AnnotatedWith[TypedDict({'bar': builtins.str})]"
+    installed_apps:
+        - myapp
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from typing import TypeVar
+                from typing_extensions import TypedDict
+                from django.db import models
+                from django.db.models.expressions import Value
+                from django.db.models.manager import BaseManager
+                from django_stubs_ext import WithAnnotations
+
+                class BarDict(TypedDict):
+                    bar: str
+
+                class BazDict(TypedDict):
+                    baz: str
+
+                _Model = TypeVar("_Model", bound=models.Model, covariant=True)
+
+                class FooQuerySet(models.QuerySet[_Model]):
+                    def with_bar(self) -> "FooQuerySet[WithAnnotations[_Model, BarDict]]":
+                        return self.annotate(bar=Value("bar"))  # type: ignore[no-any-return]
+
+                    def with_baz(self) -> "FooQuerySet[WithAnnotations[_Model, BazDict]]":
+                        return self.annotate(baz=Value("baz"))  # type: ignore[no-any-return]
+
+                FooManager = BaseManager.from_queryset(FooQuerySet)
+
+                class FooModel(models.Model):
+                    name = models.CharField(max_length=100)
+                    objects = FooManager()

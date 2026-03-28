@@ -14,7 +14,9 @@ from mypy.nodes import (
     AssignmentStmt,
     CallExpr,
     Context,
+    Decorator,
     FakeInfo,
+    FuncDef,
     NameExpr,
     RefExpr,
     Statement,
@@ -1116,6 +1118,50 @@ def set_auth_user_model_boolean_fields(ctx: AttributeContext, django_context: Dj
     return Instance(boolinfo, [])
 
 
+def _extract_typeddict_arg(ctx: AnalyzeTypeContext, fullname: str) -> TypedDictType | None:
+    """Extract the TypedDict from the second argument of WithAnnotations or Annotated[..., Annotations[...]]."""
+    is_with_annotations = fullname == fullnames.WITH_ANNOTATIONS_FULLNAME
+    args = ctx.type.args
+    if len(args) <= 1:
+        return None
+    second_arg_type = get_proper_type(ctx.api.analyze_type(args[1]))
+    if isinstance(second_arg_type, TypedDictType) and is_with_annotations:
+        return second_arg_type
+    if isinstance(second_arg_type, Instance) and second_arg_type.type.fullname == ANNOTATIONS_FULLNAME:
+        annotations_type_arg = get_proper_type(second_arg_type.args[0])
+        if isinstance(annotations_type_arg, TypedDictType):
+            return annotations_type_arg
+        if not isinstance(annotations_type_arg, AnyType):
+            ctx.api.fail("Only TypedDicts are supported as type arguments to Annotations", ctx.context)
+        elif annotations_type_arg.type_of_any == TypeOfAny.from_omitted_generics:
+            ctx.api.fail("Missing required TypedDict parameter for generic type Annotations", ctx.context)
+    return None
+
+
+def _store_annotated_method_metadata(ctx: AnalyzeTypeContext, fields_dict: TypedDictType) -> None:
+    """Store annotation metadata on the enclosing class for later resolution during type checking."""
+    assert isinstance(ctx.api, TypeAnalyser)
+    assert isinstance(ctx.api.api, SemanticAnalyzer)
+    semanal = ctx.api.api
+    if semanal.type is None:
+        return
+    # function_stack is empty during return type analysis; use semanal.statement instead
+    stmt = semanal.statement
+    if isinstance(stmt, FuncDef):
+        func_name = stmt.name
+    elif isinstance(stmt, Decorator) and isinstance(stmt.func, FuncDef):
+        func_name = stmt.func.name
+    elif semanal.function_stack:
+        func_name = semanal.function_stack[-1].name
+    else:
+        return
+    td_fullname = fields_dict.fallback.type.fullname if fields_dict.fallback else None
+    if td_fullname is None:
+        return
+    metadata = helpers.get_django_metadata(semanal.type)
+    metadata.setdefault("annotated_methods", {})[func_name] = td_fullname
+
+
 def handle_annotated_type(ctx: AnalyzeTypeContext, fullname: str) -> MypyType:
     """
     Replaces the 'WithAnnotations' type with a type that can represent an annotated
@@ -1127,22 +1173,15 @@ def handle_annotated_type(ctx: AnalyzeTypeContext, fullname: str) -> MypyType:
         return AnyType(TypeOfAny.from_omitted_generics) if is_with_annotations else ctx.type
     type_arg = get_proper_type(ctx.api.analyze_type(args[0]))
     if not isinstance(type_arg, Instance) or not helpers.is_model_type(type_arg.type):
+        # When first arg is a TypeVar (e.g. in generic queryset methods),
+        # store the annotation metadata for resolution during type checking.
+        if isinstance(type_arg, TypeVarType) and is_with_annotations:
+            fields_dict = _extract_typeddict_arg(ctx, fullname)
+            if fields_dict is not None:
+                _store_annotated_method_metadata(ctx, fields_dict)
         return type_arg
 
-    fields_dict = None
-    if len(args) > 1:
-        second_arg_type = get_proper_type(ctx.api.analyze_type(args[1]))
-        if isinstance(second_arg_type, TypedDictType) and is_with_annotations:
-            fields_dict = second_arg_type
-        elif isinstance(second_arg_type, Instance) and second_arg_type.type.fullname == ANNOTATIONS_FULLNAME:
-            annotations_type_arg = get_proper_type(second_arg_type.args[0])
-            if isinstance(annotations_type_arg, TypedDictType):
-                fields_dict = annotations_type_arg
-            elif not isinstance(annotations_type_arg, AnyType):
-                ctx.api.fail("Only TypedDicts are supported as type arguments to Annotations", ctx.context)
-            elif annotations_type_arg.type_of_any == TypeOfAny.from_omitted_generics:
-                ctx.api.fail("Missing required TypedDict parameter for generic type Annotations", ctx.context)
-
+    fields_dict = _extract_typeddict_arg(ctx, fullname)
     if fields_dict is None:
         return type_arg
 

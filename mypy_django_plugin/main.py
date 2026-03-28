@@ -226,6 +226,13 @@ class NewSemanalDjangoPlugin(Plugin):
             if info and info.has_base(fullnames.OPTIONS_CLASS_FULLNAME):
                 return partial(meta.return_proper_field_type_from_get_field, django_context=self.django_context)
 
+        # Custom queryset methods with WithAnnotations return types
+        info = self._get_typeinfo_or_none(class_fullname)
+        if info and info.has_base(fullnames.QUERYSET_CLASS_FULLNAME):
+            td_fullname = helpers.get_django_metadata(info).get("annotated_methods", {}).get(method_name)
+            if td_fullname:
+                return partial(querysets.resolve_annotated_queryset_method, typeddict_fullname=td_fullname)
+
         return None
 
     @override
