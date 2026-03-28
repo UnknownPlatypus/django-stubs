@@ -325,7 +325,7 @@ class DecimalField(Field[_ST, _GT]):
         db_column: str | None = ...,
         db_comment: str | None = ...,
         db_tablespace: str | None = ...,
-        validators: Iterable[validators._ValidatorCallable] = ...,
+        validators: Iterable[validators._ValidatorCallable[_GT]] = ...,
         error_messages: _ErrorMessagesMapping | None = ...,
     ) -> None: ...
     @cached_property
@@ -361,7 +361,7 @@ class CharField(Field[_ST, _GT]):
         db_column: str | None = ...,
         db_comment: str | None = ...,
         db_tablespace: str | None = ...,
-        validators: Iterable[validators._ValidatorCallable] = ...,
+        validators: Iterable[validators._ValidatorCallable[_GT]] = ...,
         error_messages: _ErrorMessagesMapping | None = ...,
         *,
         db_collation: str | None = None,
@@ -393,7 +393,7 @@ class SlugField(CharField[_ST, _GT]):
         db_column: str | None = ...,
         db_comment: str | None = ...,
         db_tablespace: str | None = ...,
-        validators: Iterable[validators._ValidatorCallable] = ...,
+        validators: Iterable[validators._ValidatorCallable[_GT]] = ...,
         error_messages: _ErrorMessagesMapping | None = ...,
         *,
         max_length: int | None = 50,
@@ -434,7 +434,7 @@ class URLField(CharField[_ST, _GT]):
         db_comment: str | None = ...,
         db_tablespace: str | None = ...,
         auto_created: bool = ...,
-        validators: Iterable[validators._ValidatorCallable] = ...,
+        validators: Iterable[validators._ValidatorCallable[_GT]] = ...,
         error_messages: _ErrorMessagesMapping | None = ...,
     ) -> None: ...
     @override
@@ -468,7 +468,7 @@ class TextField(Field[_ST, _GT]):
         db_column: str | None = ...,
         db_comment: str | None = ...,
         db_tablespace: str | None = ...,
-        validators: Iterable[validators._ValidatorCallable] = ...,
+        validators: Iterable[validators._ValidatorCallable[_GT]] = ...,
         error_messages: _ErrorMessagesMapping | None = ...,
         *,
         db_collation: str | None = None,
@@ -520,7 +520,7 @@ class GenericIPAddressField(Field[_ST, _GT]):
         db_column: str | None = ...,
         db_comment: str | None = ...,
         db_tablespace: str | None = ...,
-        validators: Iterable[validators._ValidatorCallable] = ...,
+        validators: Iterable[validators._ValidatorCallable[_GT]] = ...,
         error_messages: _ErrorMessagesMapping | None = ...,
     ) -> None: ...
     @override
@@ -558,7 +558,7 @@ class DateField(DateTimeCheckMixin, Field[_ST, _GT]):
         db_column: str | None = ...,
         db_comment: str | None = ...,
         db_tablespace: str | None = ...,
-        validators: Iterable[validators._ValidatorCallable] = ...,
+        validators: Iterable[validators._ValidatorCallable[_GT]] = ...,
         error_messages: _ErrorMessagesMapping | None = ...,
     ) -> None: ...
     @override
@@ -593,7 +593,7 @@ class TimeField(DateTimeCheckMixin, Field[_ST, _GT]):
         db_column: str | None = ...,
         db_comment: str | None = ...,
         db_tablespace: str | None = ...,
-        validators: Iterable[validators._ValidatorCallable] = ...,
+        validators: Iterable[validators._ValidatorCallable[_GT]] = ...,
         error_messages: _ErrorMessagesMapping | None = ...,
     ) -> None: ...
     @override
@@ -635,7 +635,7 @@ class UUIDField(Field[_ST, _GT]):
         db_comment: str | None = ...,
         db_tablespace: str | None = ...,
         auto_created: bool = ...,
-        validators: Iterable[validators._ValidatorCallable] = ...,
+        validators: Iterable[validators._ValidatorCallable[_GT]] = ...,
         error_messages: _ErrorMessagesMapping | None = ...,
     ) -> None: ...
     @override
@@ -673,7 +673,7 @@ class FilePathField(Field[_ST, _GT]):
         db_column: str | None = ...,
         db_comment: str | None = ...,
         db_tablespace: str | None = ...,
-        validators: Iterable[validators._ValidatorCallable] = ...,
+        validators: Iterable[validators._ValidatorCallable[_GT]] = ...,
         error_messages: _ErrorMessagesMapping | None = ...,
     ) -> None: ...
     @override
