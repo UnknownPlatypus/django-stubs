@@ -215,19 +215,17 @@ class NewSemanalDjangoPlugin(Plugin):
             }
             return hooks.get(class_fullname)
 
+        info = self._get_typeinfo_or_none(class_fullname)
         if method_name in self.manager_and_queryset_method_hooks:
-            info = self._get_typeinfo_or_none(class_fullname)
             if info and helpers.has_any_of_bases(
                 info, [fullnames.QUERYSET_CLASS_FULLNAME, fullnames.MANAGER_CLASS_FULLNAME]
             ):
                 return self.manager_and_queryset_method_hooks[method_name]
         elif method_name == "get_field":
-            info = self._get_typeinfo_or_none(class_fullname)
             if info and info.has_base(fullnames.OPTIONS_CLASS_FULLNAME):
                 return partial(meta.return_proper_field_type_from_get_field, django_context=self.django_context)
 
         # Custom queryset methods with WithAnnotations return types
-        info = self._get_typeinfo_or_none(class_fullname)
         if info and info.has_base(fullnames.QUERYSET_CLASS_FULLNAME):
             td_fullname = helpers.get_django_metadata(info).get("annotated_methods", {}).get(method_name)
             if td_fullname:

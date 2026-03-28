@@ -111,7 +111,11 @@ def get_method_type_from_dynamic_manager(
         # Apply stored annotation metadata from WithAnnotations[_Model, TypedDict] return types
         td_fullname = helpers.get_django_metadata(base_that_has_method).get("annotated_methods", {}).get(method_name)
         if td_fullname:
-            processed = _apply_annotation_to_callable(api, processed, td_fullname)
+            from mypy_django_plugin.transformers.models import apply_annotations_to_return_type
+
+            ret = get_proper_type(processed.ret_type)
+            if isinstance(ret, Instance):
+                processed = processed.copy_modified(ret_type=apply_annotations_to_return_type(api, ret, td_fullname))
         items.append(processed)
     return Overloaded(items) if len(items) > 1 else items[0]
 
@@ -166,35 +170,6 @@ def _process_dynamic_method(
         variables=variables,
         ret_type=ret_type,
     )
-
-
-def _apply_annotation_to_callable(api: TypeChecker, method_type: CallableType, td_fullname: str) -> CallableType:
-    """Apply stored WithAnnotations metadata to a callable's return type."""
-    from mypy_django_plugin.transformers.models import get_annotated_type
-
-    ret_type = get_proper_type(method_type.ret_type)
-    if not isinstance(ret_type, Instance) or not ret_type.args:
-        return method_type
-
-    # Find the model type in the return type's args
-    model_type = get_proper_type(ret_type.args[0])
-    if not isinstance(model_type, Instance) or not helpers.is_model_type(model_type.type):
-        return method_type
-
-    td_info = helpers.lookup_fully_qualified_typeinfo(api, td_fullname)
-    if td_info is None or td_info.typeddict_type is None:
-        return method_type
-
-    annotated_type = get_annotated_type(api, model_type, fields_dict=td_info.typeddict_type)
-
-    new_args = tuple(
-        annotated_type
-        if isinstance(get_proper_type(a), Instance) and helpers.is_model_type(get_proper_type(a).type)
-        else a
-        for a in ret_type.args
-    )
-    new_ret_type = ret_type.copy_modified(args=new_args)
-    return method_type.copy_modified(ret_type=new_ret_type)
 
 
 def _get_funcdef_type(definition: Node | None) -> ProperType | None:

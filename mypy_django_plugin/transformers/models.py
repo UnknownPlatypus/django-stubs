@@ -1149,7 +1149,7 @@ def _store_annotated_method_metadata(ctx: AnalyzeTypeContext, fields_dict: Typed
     stmt = semanal.statement
     if isinstance(stmt, FuncDef):
         func_name = stmt.name
-    elif isinstance(stmt, Decorator) and isinstance(stmt.func, FuncDef):
+    elif isinstance(stmt, Decorator):
         func_name = stmt.func.name
     elif semanal.function_stack:
         func_name = semanal.function_stack[-1].name
@@ -1216,3 +1216,31 @@ def get_annotated_type(
     if annotated_model is None:
         return model_type
     return Instance(annotated_model, [fields_dict], extra_attrs=extra_attrs)
+
+
+def apply_annotations_to_return_type(api: TypeChecker, return_type: Instance, td_fullname: str) -> Instance:
+    """Replace model-typed args in a return type Instance with an annotated model.
+
+    Used by both the manager and queryset code paths to resolve WithAnnotations
+    metadata stored during semantic analysis.
+    """
+    if not return_type.args:
+        return return_type
+
+    model_type = get_proper_type(return_type.args[0])
+    if not isinstance(model_type, Instance) or not helpers.is_model_type(model_type.type):
+        return return_type
+
+    td_info = helpers.lookup_fully_qualified_typeinfo(api, td_fullname)
+    if td_info is None or td_info.typeddict_type is None:
+        return return_type
+
+    annotated_type = get_annotated_type(api, model_type, fields_dict=td_info.typeddict_type)
+
+    new_args = tuple(
+        annotated_type
+        if isinstance(get_proper_type(a), Instance) and helpers.is_model_type(get_proper_type(a).type)
+        else a
+        for a in return_type.args
+    )
+    return return_type.copy_modified(args=new_args)
