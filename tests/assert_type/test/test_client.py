@@ -17,9 +17,12 @@ assert_type(response.client, Client)
 assert_type(response.context, ContextList | dict[str, Any])
 assert_type(response.context_data, dict[str, Any] | None)
 assert_type(response.content, bytes)
-assert_type(response.redirect_chain, list[tuple[str, int]])
 assert_type(response.text, str)
 response.json()
+
+# redirect_chain is only available when follow=True
+follow_response = client.get("foo", follow=True)
+assert_type(follow_response.redirect_chain, list[tuple[str, int]])
 
 
 # Async client response attributes
@@ -33,8 +36,11 @@ async def test_async_client() -> None:
     assert_type(response.context, ContextList | dict[str, Any])
     assert_type(response.context_data, dict[str, Any] | None)
     assert_type(response.content, bytes)
-    assert_type(response.redirect_chain, list[tuple[str, int]])
     response.json()
+
+    # redirect_chain is only available when follow=True
+    follow_response = await async_client.get("foo", follow=True)
+    assert_type(follow_response.redirect_chain, list[tuple[str, int]])
 
 
 # Request factories

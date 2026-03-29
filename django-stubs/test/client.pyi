@@ -5,7 +5,7 @@ from io import BytesIO, IOBase
 from json import JSONEncoder
 from re import Pattern
 from types import TracebackType
-from typing import Any, Generic, Literal, NoReturn, TypeAlias, TypedDict, TypeVar, type_check_only
+from typing import Any, Generic, Literal, NoReturn, TypeAlias, TypedDict, TypeVar, overload, type_check_only
 
 from asgiref.typing import ASGIVersions
 from django.contrib.auth.models import _User
@@ -233,9 +233,12 @@ class _MonkeyPatchedWSGIResponse(_WSGIResponse):
 
     content: bytes
     resolver_match: ResolverMatch
-    redirect_chain: list[tuple[str, int]]
     @cached_property
     def text(self) -> str: ...
+
+@type_check_only
+class _MonkeyPatchedWSGIResponseRedirect(_MonkeyPatchedWSGIResponse):
+    redirect_chain: list[tuple[str, int]]
 
 @type_check_only
 class _MonkeyPatchedASGIResponse(_ASGIResponse):
@@ -255,6 +258,9 @@ class _MonkeyPatchedASGIResponse(_ASGIResponse):
 
     content: bytes
     resolver_match: ResolverMatch
+
+@type_check_only
+class _MonkeyPatchedASGIResponseRedirect(_MonkeyPatchedASGIResponse):
     redirect_chain: list[tuple[str, int]]
 
 class ClientMixin:
@@ -287,8 +293,33 @@ class Client(ClientMixin, _RequestFactory[_MonkeyPatchedWSGIResponse]):
     ) -> None: ...
     @override
     def request(self, **request: Any) -> _MonkeyPatchedWSGIResponse: ...
+    @overload  # type: ignore[override]
+    def get(
+        self,
+        path: _StrOrPromise,
+        data: _GetDataType = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload
+    def get(
+        self,
+        path: _StrOrPromise,
+        data: _GetDataType = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponseRedirect: ...
+    @overload
     @override
-    def get(  # type: ignore[override]
+    def get(
         self,
         path: _StrOrPromise,
         data: _GetDataType = ...,
@@ -299,8 +330,35 @@ class Client(ClientMixin, _RequestFactory[_MonkeyPatchedWSGIResponse]):
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload  # type: ignore[override]
+    def post(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload
+    def post(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponseRedirect: ...
+    @overload
     @override
-    def post(  # type: ignore[override]
+    def post(
         self,
         path: _StrOrPromise,
         data: Any = ...,
@@ -312,8 +370,33 @@ class Client(ClientMixin, _RequestFactory[_MonkeyPatchedWSGIResponse]):
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload  # type: ignore[override]
+    def head(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload
+    def head(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponseRedirect: ...
+    @overload
     @override
-    def head(  # type: ignore[override]
+    def head(
         self,
         path: _StrOrPromise,
         data: Any = ...,
@@ -324,8 +407,35 @@ class Client(ClientMixin, _RequestFactory[_MonkeyPatchedWSGIResponse]):
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload  # type: ignore[override]
+    def options(
+        self,
+        path: _StrOrPromise,
+        data: dict[str, str] | str = ...,
+        content_type: str = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload
+    def options(
+        self,
+        path: _StrOrPromise,
+        data: dict[str, str] | str = ...,
+        content_type: str = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponseRedirect: ...
+    @overload
     @override
-    def options(  # type: ignore[override]
+    def options(
         self,
         path: _StrOrPromise,
         data: dict[str, str] | str = ...,
@@ -337,8 +447,35 @@ class Client(ClientMixin, _RequestFactory[_MonkeyPatchedWSGIResponse]):
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload  # type: ignore[override]
+    def put(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload
+    def put(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponseRedirect: ...
+    @overload
     @override
-    def put(  # type: ignore[override]
+    def put(
         self,
         path: _StrOrPromise,
         data: Any = ...,
@@ -350,8 +487,35 @@ class Client(ClientMixin, _RequestFactory[_MonkeyPatchedWSGIResponse]):
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload  # type: ignore[override]
+    def patch(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload
+    def patch(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponseRedirect: ...
+    @overload
     @override
-    def patch(  # type: ignore[override]
+    def patch(
         self,
         path: _StrOrPromise,
         data: Any = ...,
@@ -363,8 +527,35 @@ class Client(ClientMixin, _RequestFactory[_MonkeyPatchedWSGIResponse]):
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload  # type: ignore[override]
+    def delete(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload
+    def delete(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponseRedirect: ...
+    @overload
     @override
-    def delete(  # type: ignore[override]
+    def delete(
         self,
         path: _StrOrPromise,
         data: Any = ...,
@@ -376,8 +567,33 @@ class Client(ClientMixin, _RequestFactory[_MonkeyPatchedWSGIResponse]):
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload  # type: ignore[override]
+    def trace(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponse: ...
+    @overload
+    def trace(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedWSGIResponseRedirect: ...
+    @overload
     @override
-    def trace(  # type: ignore[override]
+    def trace(
         self,
         path: _StrOrPromise,
         data: Any = ...,
@@ -406,8 +622,33 @@ class AsyncClient(ClientMixin, _AsyncRequestFactory[Awaitable[_MonkeyPatchedASGI
     ) -> None: ...
     @override
     async def request(self, **request: Any) -> _MonkeyPatchedASGIResponse: ...
+    @overload  # type: ignore[override]
+    async def get(
+        self,
+        path: _StrOrPromise,
+        data: _GetDataType = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponse: ...
+    @overload
+    async def get(
+        self,
+        path: _StrOrPromise,
+        data: _GetDataType = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponseRedirect: ...
+    @overload
     @override
-    async def get(  # type: ignore[override]
+    async def get(
         self,
         path: _StrOrPromise,
         data: _GetDataType = ...,
@@ -418,8 +659,35 @@ class AsyncClient(ClientMixin, _AsyncRequestFactory[Awaitable[_MonkeyPatchedASGI
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedASGIResponse: ...
+    @overload  # type: ignore[override]
+    async def post(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponse: ...
+    @overload
+    async def post(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponseRedirect: ...
+    @overload
     @override
-    async def post(  # type: ignore[override]
+    async def post(
         self,
         path: _StrOrPromise,
         data: Any = ...,
@@ -431,8 +699,33 @@ class AsyncClient(ClientMixin, _AsyncRequestFactory[Awaitable[_MonkeyPatchedASGI
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedASGIResponse: ...
+    @overload  # type: ignore[override]
+    async def head(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponse: ...
+    @overload
+    async def head(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponseRedirect: ...
+    @overload
     @override
-    async def head(  # type: ignore[override]
+    async def head(
         self,
         path: _StrOrPromise,
         data: Any = ...,
@@ -443,8 +736,35 @@ class AsyncClient(ClientMixin, _AsyncRequestFactory[Awaitable[_MonkeyPatchedASGI
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedASGIResponse: ...
+    @overload  # type: ignore[override]
+    async def options(
+        self,
+        path: _StrOrPromise,
+        data: dict[str, str] | str = ...,
+        content_type: str = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponse: ...
+    @overload
+    async def options(
+        self,
+        path: _StrOrPromise,
+        data: dict[str, str] | str = ...,
+        content_type: str = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponseRedirect: ...
+    @overload
     @override
-    async def options(  # type: ignore[override]
+    async def options(
         self,
         path: _StrOrPromise,
         data: dict[str, str] | str = ...,
@@ -456,8 +776,35 @@ class AsyncClient(ClientMixin, _AsyncRequestFactory[Awaitable[_MonkeyPatchedASGI
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedASGIResponse: ...
+    @overload  # type: ignore[override]
+    async def put(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponse: ...
+    @overload
+    async def put(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponseRedirect: ...
+    @overload
     @override
-    async def put(  # type: ignore[override]
+    async def put(
         self,
         path: _StrOrPromise,
         data: Any = ...,
@@ -469,8 +816,35 @@ class AsyncClient(ClientMixin, _AsyncRequestFactory[Awaitable[_MonkeyPatchedASGI
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedASGIResponse: ...
+    @overload  # type: ignore[override]
+    async def patch(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponse: ...
+    @overload
+    async def patch(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponseRedirect: ...
+    @overload
     @override
-    async def patch(  # type: ignore[override]
+    async def patch(
         self,
         path: _StrOrPromise,
         data: Any = ...,
@@ -482,8 +856,35 @@ class AsyncClient(ClientMixin, _AsyncRequestFactory[Awaitable[_MonkeyPatchedASGI
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedASGIResponse: ...
+    @overload  # type: ignore[override]
+    async def delete(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponse: ...
+    @overload
+    async def delete(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        content_type: str = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponseRedirect: ...
+    @overload
     @override
-    async def delete(  # type: ignore[override]
+    async def delete(
         self,
         path: _StrOrPromise,
         data: Any = ...,
@@ -495,8 +896,33 @@ class AsyncClient(ClientMixin, _AsyncRequestFactory[Awaitable[_MonkeyPatchedASGI
         query_params: Mapping[Any, Any] | None = ...,
         **extra: Any,
     ) -> _MonkeyPatchedASGIResponse: ...
+    @overload  # type: ignore[override]
+    async def trace(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        follow: Literal[False] = ...,
+        secure: bool = ...,
+        *,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponse: ...
+    @overload
+    async def trace(
+        self,
+        path: _StrOrPromise,
+        data: Any = ...,
+        *,
+        follow: Literal[True],
+        secure: bool = ...,
+        headers: Mapping[str, Any] | None = ...,
+        query_params: Mapping[Any, Any] | None = ...,
+        **extra: Any,
+    ) -> _MonkeyPatchedASGIResponseRedirect: ...
+    @overload
     @override
-    async def trace(  # type: ignore[override]
+    async def trace(
         self,
         path: _StrOrPromise,
         data: Any = ...,
