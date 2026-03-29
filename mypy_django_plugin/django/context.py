@@ -289,6 +289,14 @@ class DjangoContext:
             if klass is not models.Model
         }
 
+    @cached_property
+    def model_class_fullnames_by_label_lower(self) -> Mapping[str, str]:
+        return {
+            klass._meta.label_lower: helpers.get_class_fullname(klass)
+            for klass in self.all_registered_model_classes
+            if klass is not models.Model
+        }
+
     def get_field_nullability(self, field: Union["Field[Any, Any]", ForeignObjectRel], method: str | None) -> bool:
         if method in ("values", "values_list"):
             return field.null

@@ -1200,6 +1200,7 @@
                     )
 
 -   case: test_many_to_many
+    disable_cache: true
     skip: __import__("django").VERSION < (6, 0)
     main: |
         from typing_extensions import reveal_type

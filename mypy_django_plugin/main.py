@@ -7,7 +7,7 @@ from typing import Any
 
 from mypy.build import PRI_MED, PRI_MYPY
 from mypy.modulefinder import mypy_path
-from mypy.nodes import MypyFile, TypeInfo
+from mypy.nodes import Import, ImportFrom, MypyFile, TypeInfo
 from mypy.options import Options
 from mypy.plugin import (
     AnalyzeTypeContext,
@@ -27,6 +27,7 @@ from mypy_django_plugin.django.context import DjangoContext
 from mypy_django_plugin.exceptions import UnregisteredModelError
 from mypy_django_plugin.lib import fullnames, helpers
 from mypy_django_plugin.transformers import (
+    apps,
     choices,
     fields,
     forms,
@@ -86,6 +87,15 @@ class NewSemanalDjangoPlugin(Plugin):
         fake_lineno = -1
         return (priority, module, fake_lineno)
 
+    def _file_imports_apps_module(self, file: MypyFile) -> bool:
+        for import_node in file.imports:
+            if isinstance(import_node, Import):
+                if any(module in {"django.apps", "django.apps.registry"} for module, _ in import_node.ids):
+                    return True
+            elif isinstance(import_node, ImportFrom) and import_node.id in {"django.apps", "django.apps.registry"}:
+                return True
+        return False
+
     @override
     def get_additional_deps(self, file: MypyFile) -> list[tuple[int, str, int]]:
         # for settings
@@ -105,6 +115,9 @@ class NewSemanalDjangoPlugin(Plugin):
                 # get_user_model() model app is not installed
                 return []
             return [self._new_dependency(auth_user_module), self._new_dependency("django_stubs_ext")]
+
+        if self._file_imports_apps_module(file):
+            return [self._new_dependency(models) for models in self.django_context.model_modules.keys()]
 
         # ensure that all mentions to='someapp.SomeModel' are loaded with corresponding related Fields
         defined_model_classes = self.django_context.model_modules.get(file.fullname)
@@ -226,6 +239,10 @@ class NewSemanalDjangoPlugin(Plugin):
             info = self._get_typeinfo_or_none(class_fullname)
             if info and info.has_base(fullnames.OPTIONS_CLASS_FULLNAME):
                 return partial(meta.return_proper_field_type_from_get_field, django_context=self.django_context)
+        elif method_name == "get_model":
+            info = self._get_typeinfo_or_none(class_fullname)
+            if info and (info.fullname == fullnames.APPS_FULLNAME or info.has_base(fullnames.APPS_FULLNAME)):
+                return partial(apps.resolve_model_for_get_model, django_context=self.django_context)
 
         return None
 

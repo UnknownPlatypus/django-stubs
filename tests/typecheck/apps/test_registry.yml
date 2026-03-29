@@ -1,0 +1,65 @@
+-   case: apps_get_model_resolves_literal_references
+    disable_cache: true
+    main: |
+        from typing_extensions import reveal_type
+        from django.apps import apps
+        from django.apps.registry import apps as registry_apps
+
+        reveal_type(apps.get_model("app1.First"))  # N: Revealed type is "type[app1.models.First]"
+        reveal_type(apps.get_model("app1.first"))  # N: Revealed type is "type[app1.models.First]"
+        reveal_type(apps.get_model("app1", "First"))  # N: Revealed type is "type[app1.models.First]"
+        reveal_type(apps.get_model(app_label="app1", model_name="first"))  # N: Revealed type is "type[app1.models.First]"
+        reveal_type(apps.get_model(model_name="Second", app_label="app2"))  # N: Revealed type is "type[app2.models.Second]"
+        reveal_type(registry_apps.get_model("contenttypes.ContentType"))  # N: Revealed type is "type[django.contrib.contenttypes.models.ContentType]"
+    installed_apps:
+        - django.contrib.contenttypes
+        - app1
+        - app2
+    files:
+        - path: app1/__init__.py
+        - path: app1/models.py
+          content: |
+              from django.db import models
+
+              class First(models.Model):
+                  pass
+        - path: app2/__init__.py
+        - path: app2/models.py
+          content: |
+              from django.db import models
+
+              class Second(models.Model):
+                  pass
+
+-   case: apps_get_model_reports_unknown_model_and_keeps_dynamic_calls_permissive
+    disable_cache: true
+    main: |
+        from typing_extensions import reveal_type
+        from django.apps import apps
+
+        reveal_type(apps.get_model("myapp.Missing"))
+
+        app_label = "myapp"
+        model = apps.get_model(app_label, "ManagedModel")
+        reveal_type(model)
+        model.objects.special()
+    installed_apps:
+        - myapp
+    files:
+        - path: myapp/__init__.py
+        - path: myapp/models.py
+          content: |
+              from django.db import models
+
+              class ManagedModelQuerySet(models.QuerySet["ManagedModel"]):
+                  def special(self) -> int:
+                      return 1
+
+              ManagedModelManager = models.Manager.from_queryset(ManagedModelQuerySet)
+
+              class ManagedModel(models.Model):
+                  objects = ManagedModelManager()
+    out: |
+        main:4: note: Revealed type is "type[Any]"
+        main:4: error: Could not match lazy reference with any model  [misc]
+        main:8: note: Revealed type is "type[Any]"
