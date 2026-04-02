@@ -176,7 +176,8 @@ def set_descriptor_types_for_field(
     # reconcile set and get types with the base field class
     base_field_type = next(base for base in default_return_type.type.mro if base.fullname == fullnames.FIELD_FULLNAME)
     mapped_instance = map_instance_to_supertype(default_return_type, base_field_type)
-    mapped_set_type, mapped_get_type = tuple(get_proper_type(arg) for arg in mapped_instance.args)
+    mapped_args = [get_proper_type(arg) for arg in mapped_instance.args]
+    mapped_set_type, mapped_get_type = mapped_args[0], mapped_args[1]
 
     # bail if either mapped_set_type or mapped_get_type have type Never
     if not (isinstance(mapped_set_type, UninhabitedType) or isinstance(mapped_get_type, UninhabitedType)):

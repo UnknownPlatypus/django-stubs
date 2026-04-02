@@ -406,6 +406,7 @@ def get_field_descriptor_type_from_typevar_default(
     for the requested parameter index.
     """
     from mypy.maptype import map_instance_to_supertype
+    from mypy.typeops import fill_typevars
 
     # Find Field in MRO
     field_base = None
@@ -416,11 +417,9 @@ def get_field_descriptor_type_from_typevar_default(
     if field_base is None:
         return AnyType(TypeOfAny.explicit)
 
-    # Use the type's own type vars as args for an unparameterized instance
-    default_args: list[MypyType] = []
-    for tv in type_info.defn.type_vars:
-        default_args.append(TypeVarType(tv))
-    instance = Instance(type_info, default_args)
+    # Create an instance with the class's own TypeVars as args
+    instance = fill_typevars(type_info)
+    assert isinstance(instance, Instance)
 
     try:
         mapped = map_instance_to_supertype(instance, field_base)
