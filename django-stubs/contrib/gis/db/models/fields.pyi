@@ -21,9 +21,24 @@ from django.utils.functional import _StrOrPromise
 from typing_extensions import override
 
 # __set__ value type
-_ST = TypeVar("_ST")
+_ST = TypeVar("_ST", contravariant=True, default=Any)
 # __get__ return type
-_GT = TypeVar("_GT")
+_GT = TypeVar("_GT", covariant=True, default=Any)
+
+_PointST = TypeVar("_PointST", contravariant=True, default=Point | Combinable)
+_PointGT = TypeVar("_PointGT", covariant=True, default=Point)
+_LineStringST = TypeVar("_LineStringST", contravariant=True, default=LineString | Combinable)
+_LineStringGT = TypeVar("_LineStringGT", covariant=True, default=LineString)
+_PolygonST = TypeVar("_PolygonST", contravariant=True, default=Polygon | Combinable)
+_PolygonGT = TypeVar("_PolygonGT", covariant=True, default=Polygon)
+_MultiPointST = TypeVar("_MultiPointST", contravariant=True, default=MultiPoint | Combinable)
+_MultiPointGT = TypeVar("_MultiPointGT", covariant=True, default=MultiPoint)
+_MultiLineStringST = TypeVar("_MultiLineStringST", contravariant=True, default=MultiLineString | Combinable)
+_MultiLineStringGT = TypeVar("_MultiLineStringGT", covariant=True, default=MultiLineString)
+_MultiPolygonST = TypeVar("_MultiPolygonST", contravariant=True, default=MultiPolygon | Combinable)
+_MultiPolygonGT = TypeVar("_MultiPolygonGT", covariant=True, default=MultiPolygon)
+_GeomCollST = TypeVar("_GeomCollST", contravariant=True, default=GeometryCollection | Combinable)
+_GeomCollGT = TypeVar("_GeomCollGT", covariant=True, default=GeometryCollection)
 
 class SRIDCacheEntry(NamedTuple):
     units: Any
@@ -130,57 +145,43 @@ class GeometryField(BaseSpatialField[_ST, _GT]):
         **kwargs: Any,
     ) -> forms.GeometryField: ...
 
-class PointField(GeometryField[_ST, _GT]):
-    _pyi_private_set_type: Point | Combinable
-    _pyi_private_get_type: Point
+class PointField(GeometryField[_PointST, _PointGT]):
     _pyi_lookup_exact_type: Point
 
     geom_class: type[Point]
     form_class: type[forms.PointField]
 
-class LineStringField(GeometryField[_ST, _GT]):
-    _pyi_private_set_type: LineString | Combinable
-    _pyi_private_get_type: LineString
+class LineStringField(GeometryField[_LineStringST, _LineStringGT]):
     _pyi_lookup_exact_type: LineString
 
     geom_class: type[LineString]
     form_class: type[forms.LineStringField]
 
-class PolygonField(GeometryField[_ST, _GT]):
-    _pyi_private_set_type: Polygon | Combinable
-    _pyi_private_get_type: Polygon
+class PolygonField(GeometryField[_PolygonST, _PolygonGT]):
     _pyi_lookup_exact_type: Polygon
 
     geom_class: type[Polygon]
     form_class: type[forms.PolygonField]
 
-class MultiPointField(GeometryField[_ST, _GT]):
-    _pyi_private_set_type: MultiPoint | Combinable
-    _pyi_private_get_type: MultiPoint
+class MultiPointField(GeometryField[_MultiPointST, _MultiPointGT]):
     _pyi_lookup_exact_type: MultiPoint
 
     geom_class: type[MultiPoint]
     form_class: type[forms.MultiPointField]
 
-class MultiLineStringField(GeometryField[_ST, _GT]):
-    _pyi_private_set_type: MultiLineString | Combinable
-    _pyi_private_get_type: MultiLineString
+class MultiLineStringField(GeometryField[_MultiLineStringST, _MultiLineStringGT]):
     _pyi_lookup_exact_type: MultiLineString
 
     geom_class: type[MultiLineString]
     form_class: type[forms.MultiLineStringField]
 
-class MultiPolygonField(GeometryField[_ST, _GT]):
-    _pyi_private_set_type: MultiPolygon | Combinable
-    _pyi_private_get_type: MultiPolygon
+class MultiPolygonField(GeometryField[_MultiPolygonST, _MultiPolygonGT]):
     _pyi_lookup_exact_type: MultiPolygon
 
     geom_class: type[MultiPolygon]
     form_class: type[forms.MultiPolygonField]
 
-class GeometryCollectionField(GeometryField[_ST, _GT]):
-    _pyi_private_set_type: GeometryCollection | Combinable
-    _pyi_private_get_type: GeometryCollection
+class GeometryCollectionField(GeometryField[_GeomCollST, _GeomCollGT]):
     _pyi_lookup_exact_type: GeometryCollection
 
     geom_class: type[GeometryCollection]

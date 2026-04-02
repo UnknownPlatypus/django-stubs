@@ -6,6 +6,7 @@ from django.db.models.fields.related import RelatedField
 from django.db.models.fields.reverse_related import ForeignObjectRel
 from mypy import checker
 from mypy.checker import TypeChecker
+from mypy.maptype import map_instance_to_supertype
 from mypy.mro import calculate_mro
 from mypy.nodes import (
     GDEF,
@@ -394,7 +395,91 @@ def iter_bases(info: TypeInfo) -> Iterator[Instance]:
 
 
 def get_private_descriptor_type(type_info: TypeInfo, private_field_name: str, is_nullable: bool) -> MypyType:
-    """Return declared type of type_info's private_field_name (used for private Field attributes)"""
+    """Return the descriptor type for a field.
+
+    For _pyi_private_set_type and _pyi_private_get_type, reads from TypeVar defaults
+    on the Field base class. For other attributes (e.g. _pyi_lookup_exact_type),
+    falls back to direct attribute lookup.
+    """
+    if private_field_name == "_pyi_private_set_type":
+        return _get_descriptor_type_from_typevar_default(type_info, arg_index=0, is_nullable=is_nullable)
+    if private_field_name == "_pyi_private_get_type":
+        return _get_descriptor_type_from_typevar_default(type_info, arg_index=1, is_nullable=is_nullable)
+    return _get_descriptor_type_from_attribute(type_info, private_field_name, is_nullable)
+
+
+def _get_descriptor_type_from_typevar_default(type_info: TypeInfo, arg_index: int, is_nullable: bool) -> MypyType:
+    """Read Field descriptor type by mapping TypeVar defaults to Field[_ST, _GT] base.
+
+    Walks the MRO to handle user-defined subclasses whose own TypeVars may lack
+    defaults (e.g. MyIntegerField(IntegerField[_ST, _GT]) where _ST/_GT have no
+    defaults). Also handles non-generic subclasses with fixed type args
+    (e.g. MyStrictField(IntegerField[int, int])).
+    """
+    field_base: TypeInfo | None = None
+    for base in type_info.mro:
+        if base.fullname == fullnames.FIELD_FULLNAME:
+            field_base = base
+            break
+    if field_base is None:
+        return AnyType(TypeOfAny.explicit)
+
+    # Non-generic subclasses (e.g. MyStrictField(IntegerField[int, int])):
+    # map directly — the fixed type args are already concrete in the bases.
+    if not type_info.defn.type_vars:
+        instance = Instance(type_info, [])
+        mapped = map_instance_to_supertype(instance, field_base)
+        if arg_index < len(mapped.args):
+            descriptor_type = get_proper_type(mapped.args[arg_index])
+            if not isinstance(descriptor_type, AnyType):
+                result_type: MypyType = descriptor_type
+                if is_nullable:
+                    result_type = make_optional_type(result_type)
+                return result_type
+
+    # Generic subclasses: walk MRO to find first class whose TypeVar defaults
+    # produce a non-Any type at arg_index.
+    for cls in type_info.mro:
+        if cls.fullname == "builtins.object":
+            break
+        type_vars = cls.defn.type_vars
+        if not type_vars:
+            continue
+
+        args: list[MypyType] = []
+        has_non_any_default = False
+        for tv in type_vars:
+            if tv.default is not None and not isinstance(get_proper_type(tv.default), AnyType):  # type: ignore[redundant-expr]
+                args.append(tv.default)
+                has_non_any_default = True
+            else:
+                args.append(AnyType(TypeOfAny.special_form))
+
+        if not has_non_any_default:
+            continue
+
+        instance = Instance(cls, args)
+        mapped = map_instance_to_supertype(instance, field_base)
+        if arg_index >= len(mapped.args):
+            continue
+
+        descriptor_type = get_proper_type(mapped.args[arg_index])
+        if isinstance(descriptor_type, AnyType):
+            continue
+
+        result_type2: MypyType = descriptor_type
+        if is_nullable:
+            result_type2 = make_optional_type(result_type2)
+        return result_type2
+
+    fallback: MypyType = AnyType(TypeOfAny.explicit)
+    if is_nullable:
+        fallback = make_optional_type(fallback)
+    return fallback
+
+
+def _get_descriptor_type_from_attribute(type_info: TypeInfo, private_field_name: str, is_nullable: bool) -> MypyType:
+    """Read type from a declared attribute on the TypeInfo (used for _pyi_lookup_exact_type)."""
     sym = type_info.get(private_field_name)
     if sym is None:
         return AnyType(TypeOfAny.explicit)

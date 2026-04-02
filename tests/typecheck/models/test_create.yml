@@ -76,7 +76,7 @@
                 class JSONField(models.TextField): pass  # incomplete
 
                 class Base(models.Model):
-                    dct: models.Field[dict[str, str], dict[str, str]] = JSONField()
+                    dct: models.Field[dict[str, str], dict[str, str]] = JSONField()  # E: Incompatible types in assignment (expression has type "JSONField[str | Combinable, str]", variable has type "Field[dict[str, str], dict[str, str]]")  [assignment]
 
                 class Child(Base): pass
 

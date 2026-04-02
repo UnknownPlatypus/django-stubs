@@ -6,7 +6,7 @@ from django import forms
 from django.core import validators  # due to weird mypy.stubtest error
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.models.base import Model
-from django.db.models.expressions import Combinable, Expression
+from django.db.models.expressions import Expression
 from django.db.models.fields import NOT_PROVIDED, Field, _AllLimitChoicesTo, _ErrorMessagesMapping, _LimitChoicesTo
 from django.db.models.fields.mixins import FieldCacheMixin
 from django.db.models.fields.related_descriptors import ForeignKeyDeferredAttribute, ManyRelatedManager
@@ -33,9 +33,9 @@ def lazy_related_operation(
 ) -> None: ...
 
 # __set__ value type
-_ST = TypeVar("_ST", contravariant=True)
+_ST = TypeVar("_ST", contravariant=True, default=Any)
 # __get__ return type
-_GT = TypeVar("_GT", covariant=True, default=_ST)
+_GT = TypeVar("_GT", covariant=True, default=Any)
 
 class RelatedField(FieldCacheMixin, Field[_ST, _GT]):
     one_to_many: bool
@@ -174,9 +174,6 @@ class ForeignObject(RelatedField[_ST, _GT]):
     requires_unique_target: bool
 
 class ForeignKey(ForeignObject[_ST, _GT]):
-    _pyi_private_set_type: Any | Combinable
-    _pyi_private_get_type: Any
-
     descriptor_class: type[ForeignKeyDeferredAttribute]
     remote_field: ManyToOneRel
     rel_class: type[ManyToOneRel]
@@ -227,9 +224,6 @@ class ForeignKey(ForeignObject[_ST, _GT]):
     def convert_empty_strings(self, value: Any, expression: Expression, connection: BaseDatabaseWrapper) -> Any: ...
 
 class OneToOneField(ForeignKey[_ST, _GT]):
-    _pyi_private_set_type: Any | Combinable
-    _pyi_private_get_type: Any
-
     remote_field: OneToOneRel
     rel_class: type[OneToOneRel]
     def __init__(

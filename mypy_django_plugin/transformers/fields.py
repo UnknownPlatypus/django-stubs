@@ -1,12 +1,14 @@
 from typing import Any, NamedTuple, Union, cast
 
 from django.core.exceptions import FieldDoesNotExist
+from django.db.models.expressions import Combinable
 from django.db.models.fields import AutoField, Field
 from django.db.models.fields.related import RelatedField
 from django.db.models.fields.reverse_related import ForeignObjectRel
 from mypy.maptype import map_instance_to_supertype
 from mypy.nodes import AssignmentStmt, NameExpr, TypeInfo
 from mypy.plugin import FunctionContext
+from mypy.typeanal import make_optional_type
 from mypy.types import AnyType, Instance, NoneType, ProperType, TypeOfAny, UninhabitedType, UnionType, get_proper_type
 from mypy.types import Type as MypyType
 
@@ -104,6 +106,13 @@ def fill_descriptor_types_for_related_field(ctx: FunctionContext, django_context
     else:
         related_model_to_set_type = Instance(related_model_to_set_info, [])
 
+    # For ForeignKey/OneToOneField, include Combinable in set type (allows F() expressions).
+    # Previously this came from _pyi_private_set_type: Any | Combinable, now we add it explicitly.
+    if helpers.has_any_of_bases(default_related_field_type.type, (fullnames.FOREIGN_KEY_FULLNAME,)):
+        combinable_info = helpers.lookup_class_typeinfo(typechecker_api, Combinable)
+        if combinable_info is not None:
+            related_model_to_set_type = UnionType.make_union([related_model_to_set_type, Instance(combinable_info, [])])
+
     # replace Any with referred_to_type
     return reparametrize_related_field_type(
         default_related_field_type, set_type=related_model_to_set_type, get_type=related_model_type
@@ -144,10 +153,11 @@ def set_descriptor_types_for_field(
     if default_expr is not None:
         is_set_nullable = is_primary_key
 
+    # Get base descriptor types from TypeVar defaults (without nullable — applied later)
     set_type, get_type = get_field_descriptor_types(
         default_return_type.type,
-        is_set_nullable=is_set_nullable or is_nullable,
-        is_get_nullable=is_get_nullable or is_nullable,
+        is_set_nullable=False,
+        is_get_nullable=False,
     )
 
     # reconcile set and get types with the base field class
@@ -161,14 +171,51 @@ def set_descriptor_types_for_field(
         set_type = helpers.convert_any_to_type(mapped_set_type, set_type)
         get_type = get_proper_type(helpers.convert_any_to_type(mapped_get_type, get_type))
 
-        # the get_type must be optional if the field is nullable
-        if (is_get_nullable or is_nullable) and not (
-            isinstance(get_type, NoneType) or helpers.is_optional(get_type) or isinstance(get_type, AnyType)
-        ):
-            ctx.api.fail(
-                f"{default_return_type.type.name} is nullable but its generic get type parameter is not optional",
-                ctx.context,
+    # Apply nullable to the combined types (after mapping, so TypeVar defaults
+    # don't lose nullable through convert_any_to_type).
+    # Note: we apply make_optional even to AnyType because the resulting
+    # Union[Any, None] preserves None through convert_any_to_type/reparametrize
+    # (e.g. for nullable ForeignKey, Any|None → Model|None after reparametrize).
+    # mypy simplifies Union[Any, None] to Any in output, so reveal_type is unaffected.
+    effective_set_nullable = is_set_nullable or is_nullable
+    effective_get_nullable = is_get_nullable or is_nullable
+
+    if effective_set_nullable and not helpers.is_optional(set_type):
+        if isinstance(get_proper_type(set_type), AnyType):
+            # Any|None preserves None through convert_any_to_type/reparametrize
+            set_type = make_optional_type(set_type)
+        elif default_return_type.type.defn.type_vars:
+            default_set = helpers.get_private_descriptor_type(
+                default_return_type.type, "_pyi_private_set_type", is_nullable=False
             )
+            if set_type == get_proper_type(default_set):
+                set_type = make_optional_type(set_type)
+
+    proper_get_type = get_proper_type(get_type)
+    if effective_get_nullable and not (isinstance(proper_get_type, NoneType) or helpers.is_optional(get_type)):
+        if isinstance(proper_get_type, AnyType):
+            # Any semantically includes None. Apply make_optional so that
+            # Union[Any, None] preserves None through reparametrize
+            # (e.g. nullable FK: Any|None → Model|None). mypy simplifies
+            # Union[Any, None] to Any in output, so reveal_type is unaffected.
+            get_type = make_optional_type(get_type)
+        else:
+            # Concrete non-optional get type. Auto-apply nullable only if the class
+            # has TypeVars and the type matches the TypeVar default (user didn't
+            # override). For non-generic classes or explicit overrides, error.
+            is_default = False
+            if default_return_type.type.defn.type_vars:
+                default_get = helpers.get_private_descriptor_type(
+                    default_return_type.type, "_pyi_private_get_type", is_nullable=False
+                )
+                is_default = get_type == get_proper_type(default_get)
+            if is_default:
+                get_type = make_optional_type(get_type)
+            else:
+                ctx.api.fail(
+                    f"{default_return_type.type.name} is nullable but its generic get type parameter is not optional",
+                    ctx.context,
+                )
 
     return default_return_type.copy_modified(args=[set_type, get_type])
 

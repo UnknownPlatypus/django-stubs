@@ -68,7 +68,7 @@
 
                 class Concrete(models.Model):
                     id = models.IntegerField()
-                    data: models.Field[dict[str, str], dict[str, str]] = JSONField()
+                    data: models.Field[dict[str, str], dict[str, str]] = JSONField()  # E: Incompatible types in assignment (expression has type "JSONField[str | Combinable, str]", variable has type "Field[dict[str, str], dict[str, str]]")  [assignment]
 
 -   case: values_list_supports_queryset_methods
     main: |
