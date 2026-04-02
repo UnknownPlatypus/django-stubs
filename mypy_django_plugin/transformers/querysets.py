@@ -91,11 +91,12 @@ def get_field_type_from_lookup(
 
     if lookup_field is None:
         return AnyType(TypeOfAny.implementation_artifact)
-    if (isinstance(lookup_field, RelatedField) and lookup_field.column == lookup) or isinstance(
-        lookup_field, ForeignObjectRel
-    ):
-        model_cls = django_context.get_field_related_model_cls(lookup_field)
-        lookup_field = django_context.get_primary_key_field(model_cls)
+
+    if isinstance(lookup_field, RelatedField | ForeignObjectRel):
+        target_field = django_context.get_related_target_field(model_cls, lookup_field)
+        if not target_field:
+            return None
+        lookup_field = target_field
 
     api = helpers.get_typechecker_api(ctx)
     model_info = helpers.lookup_class_typeinfo(api, model_cls)

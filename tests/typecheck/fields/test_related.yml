@@ -53,6 +53,18 @@
         book.publisher_id = UUID('821850bb-c105-426f-b340-3974419d00ca')
         book.publisher_id = [1]  # E: Incompatible types in assignment (expression has type "list[int]", variable has type "str | UUID")  [assignment]
         book.publisher_id = Publisher()  # E: Incompatible types in assignment (expression has type "Publisher", variable has type "str | UUID")  [assignment]
+
+        Book.objects.filter(publisher=UUID('821850bb-c105-426f-b340-3974419d00ca'))
+        Book.objects.filter(publisher_id=UUID('821850bb-c105-426f-b340-3974419d00ca'))
+        Book.objects.filter(publisher='821850bb-c105-426f-b340-3974419d00ca')
+        Book.objects.filter(publisher_id='821850bb-c105-426f-b340-3974419d00ca')
+        Book.objects.filter(publisher=Publisher())
+        Book.objects.filter(publisher_id=Publisher())
+        Book.objects.filter(publisher=1)  # E: Incompatible type for lookup 'publisher': (got "int", expected "Publisher | UUID | None")  [misc]
+        Book.objects.filter(publisher_id=1)  # E: Incompatible type for lookup 'publisher_id': (got "int", expected "UUID | str")  [misc]
+        Book.objects.filter(publisher__exact=UUID('821850bb-c105-426f-b340-3974419d00ca'))
+        reveal_type(Book.objects.values_list("publisher", flat=True))  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.Book, uuid.UUID]"
+        reveal_type(Book.objects.values_list("publisher_id", flat=True))  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.Book, uuid.UUID]"
     installed_apps:
         - myapp
     files:
@@ -65,6 +77,37 @@
                     uuid = models.UUIDField(unique=True)
                 class Book(models.Model):
                     publisher = models.ForeignKey(to=Publisher, to_field='uuid', on_delete=models.CASCADE)
+
+# Regression test for https://github.com/typeddjango/django-stubs/issues/997 and https://github.com/typeddjango/django-stubs/issues/1266
+-   case: many_to_many_add_with_uuid_pk
+    main: |
+        from uuid import UUID
+        from myapp.models import Foo, Bar
+
+        foo = Foo()
+        bar = Bar()
+
+        bar.links.add(foo)
+        bar.links.add(UUID('821850bb-c105-426f-b340-3974419d00ca'))
+        bar.links.add(12)  # E: Argument 1 to "add" of "ManyRelatedManager" has incompatible type "int"; expected "Foo | UUID"  [arg-type]
+        bar.links.set([foo])
+        bar.links.set([UUID('821850bb-c105-426f-b340-3974419d00ca')])
+        bar.links.set([UUID('821850bb-c105-426f-b340-3974419d00ca')])  # E: List item 0 has incompatible type "int"; expected "Foo | UUID"  [list-item]
+        bar.links.remove(foo)
+        bar.links.remove(UUID('821850bb-c105-426f-b340-3974419d00ca'))
+        bar.links.remove(UUID('821850bb-c105-426f-b340-3974419d00ca'))  # E: Argument 1 to "remove" of "ManyRelatedManager" has incompatible type "int"; expected "Foo | UUID"  [arg-type]
+    installed_apps:
+        - myapp
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                import uuid
+                from django.db import models
+                class Foo(models.Model):
+                    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+                class Bar(models.Model):
+                    links = models.ManyToManyField(Foo)
 
 -   case: foreign_key_field_different_order_of_params
     main: |
