@@ -49,8 +49,10 @@ _ErrorMessagesDict: TypeAlias = dict[str, _StrOrPromise]
 _ST = TypeVar("_ST", contravariant=True)
 # __get__ return type
 _GT = TypeVar("_GT", covariant=True)
+# null flag type
+_NT = TypeVar("_NT", Literal[True], Literal[False], default=Literal[False])
 
-class Field(RegisterLookupMixin, Generic[_ST, _GT]):
+class Field(RegisterLookupMixin, Generic[_ST, _GT, _NT]):
     """
     Typing model fields.
 
@@ -104,13 +106,11 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
 
     Notice, that this is not magic. This is how descriptors work with ``mypy``.
 
-    We also need ``_pyi_private_set_type`` attributes
-    and friends to help inside our plugin.
+    We also need ``_pyi_lookup_exact_type``
+    to help inside our plugin.
     It is required to enhance parts like ``filter`` queries.
     """
 
-    _pyi_private_set_type: Any
-    _pyi_private_get_type: Any
     _pyi_lookup_exact_type: Any
 
     help_text: _StrOrPromise
@@ -158,7 +158,7 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
         max_length: int | None = None,
         unique: bool = False,
         blank: bool = False,
-        null: bool = False,
+        null: _NT = ...,
         db_index: bool = False,
         rel: ForeignObjectRel | None = None,
         default: Any = ...,
@@ -177,13 +177,19 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
         db_comment: str | None = None,
         db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
     ) -> None: ...
-    def __set__(self, instance: Any, value: _ST) -> None: ...
+    @overload
+    def __set__(self: Field[_ST, _GT, Literal[False]], instance: Any, value: _ST) -> None: ...
+    @overload
+    def __set__(self: Field[_ST, _GT, Literal[True]], instance: Any, value: _ST | None) -> None: ...
     # class access
     @overload
     def __get__(self, instance: None, owner: Any) -> _FieldDescriptor[Self]: ...
-    # Model instance access
+    # non-null Model instance access
     @overload
-    def __get__(self, instance: Model, owner: Any) -> _GT: ...
+    def __get__(self: Field[Any, _GT, Literal[False]], instance: Model, owner: Any) -> _GT: ...
+    # nullable Model instance access
+    @overload
+    def __get__(self: Field[Any, _GT, Literal[True]], instance: Model, owner: Any) -> _GT | None: ...
     # non-Model instances
     @overload
     def __get__(self, instance: Any, owner: Any) -> Self: ...
