@@ -21,3 +21,63 @@
             pass
         class Category(models.Model):
             pass
+
+- case: inlineformset_factory_extended
+  main: |
+    from typing import Any
+    from django import forms
+    from myapp.models import Article, Category
+    ArticleFS: type[forms.BaseInlineFormSet[Article, Category, Any]] = forms.inlineformset_factory(Category, Article)
+    ArticleFS(instance=Article())  # E: Argument "instance" to "BaseInlineFormSet" has incompatible type "Article"; expected "Category | None"  [arg-type]
+    class CustomArticleFS(ArticleFS):
+      def __init__(self, *args: Any, **kwargs: Any) -> None:
+        print('hi')
+        super().__init__(*args, **kwargs)
+    fs = CustomArticleFS(instance=Category())
+    reveal_type(fs.instance)  # N: Revealed type is "myapp.models.Category"
+  installed_apps:
+    - myapp
+  files:
+    - path: myapp/__init__.py
+    - path: myapp/models.py
+      content: |
+        from django.db import models
+
+        class Article(models.Model):
+            pass
+        class Category(models.Model):
+            pass
+
+- case: formset_factory_extended
+  main: |
+    from typing import Any
+    from django import forms
+    MyFormSet = forms.formset_factory(forms.Form)
+    class CustomFormSet(MyFormSet):
+      def clean(self) -> None:
+        super().clean()
+    fs = CustomFormSet()
+    reveal_type(fs)  # N: Revealed type is "main.CustomFormSet"
+
+- case: modelformset_factory_extended
+  main: |
+    from typing import Any
+    from typing_extensions import reveal_type
+    from django import forms
+    from myapp.models import Article
+    ArticleMFS = forms.modelformset_factory(Article)
+    class CustomArticleMFS(ArticleMFS):
+      def clean(self) -> None:
+        super().clean()
+    fs = CustomArticleMFS()
+    reveal_type(fs)  # N: Revealed type is "main.CustomArticleMFS"
+  installed_apps:
+    - myapp
+  files:
+    - path: myapp/__init__.py
+    - path: myapp/models.py
+      content: |
+        from django.db import models
+
+        class Article(models.Model):
+            pass
