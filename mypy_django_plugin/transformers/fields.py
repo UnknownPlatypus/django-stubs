@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 from django.core.exceptions import FieldDoesNotExist
+from django.db.models.fields import AutoField
 from django.db.models.fields.related import RelatedField
 from mypy.maptype import map_instance_to_supertype
 from mypy.nodes import AssignmentStmt, NameExpr, TypeInfo
@@ -152,6 +153,14 @@ def get_field_descriptor_types(
 def set_descriptor_types_for_field_callback(ctx: FunctionContext, django_context: DjangoContext) -> MypyType:
     # With PEP 696 TypeVar defaults and _NT, mypy already infers the correct
     # field type from the stubs. No plugin intervention needed for basic fields.
+    #
+    # Exception: AutoField needs is_set_nullable=True because auto-increment
+    # fields can be omitted (set to None) even though null=False.
+    current_field = _get_current_field_from_assignment(ctx, django_context)
+    if current_field is not None:
+        if isinstance(current_field, AutoField):
+            return set_descriptor_types_for_field(ctx, is_set_nullable=True)
+
     return ctx.default_return_type
 
 

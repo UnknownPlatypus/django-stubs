@@ -32,10 +32,10 @@ def lazy_related_operation(
     function: Callable[..., Any], model: type[Model], *related_models: type[Model] | str, **kwargs: Any
 ) -> None: ...
 
-# __set__ value type
-_ST = TypeVar("_ST", contravariant=True)
-# __get__ return type
-_GT = TypeVar("_GT", covariant=True, default=_ST)
+# __set__ value type (default=Any for related fields; the plugin fills in the concrete model type)
+_ST = TypeVar("_ST", contravariant=True, default=Any)
+# __get__ return type (default=Any for related fields; the plugin fills in the concrete model type)
+_GT = TypeVar("_GT", covariant=True, default=Any)
 # null flag type
 _NT = TypeVar("_NT", Literal[True], Literal[False], default=Literal[False])
 
