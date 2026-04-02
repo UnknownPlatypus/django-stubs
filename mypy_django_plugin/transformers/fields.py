@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 from django.core.exceptions import FieldDoesNotExist
-from django.db.models.fields import AutoField, Field
 from django.db.models.fields.related import RelatedField
 from mypy.maptype import map_instance_to_supertype
 from mypy.nodes import AssignmentStmt, NameExpr, TypeInfo
@@ -15,6 +14,7 @@ from mypy_django_plugin.lib import fullnames, helpers
 from mypy_django_plugin.transformers import manytomany
 
 if TYPE_CHECKING:
+    from django.db.models.fields import Field
     from django.db.models.fields.reverse_related import ForeignObjectRel
     from mypy.plugin import FunctionContext
 
@@ -50,10 +50,13 @@ def _get_current_field_from_assignment(
 
 
 def reparametrize_related_field_type(related_field_type: Instance, set_type: MypyType, get_type: MypyType) -> Instance:
-    args = [
+    args: list[MypyType] = [
         helpers.convert_any_to_type(related_field_type.args[0], set_type),
         helpers.convert_any_to_type(related_field_type.args[1], get_type),
     ]
+    # Preserve _NT and any additional args
+    if len(related_field_type.args) > 2:
+        args.extend(related_field_type.args[2:])
     return related_field_type.copy_modified(args=args)
 
 
@@ -129,12 +132,9 @@ def get_field_descriptor_types(
 
 
 def set_descriptor_types_for_field_callback(ctx: FunctionContext, django_context: DjangoContext) -> MypyType:
-    current_field = _get_current_field_from_assignment(ctx, django_context)
-    if current_field is not None:
-        if isinstance(current_field, AutoField):
-            return set_descriptor_types_for_field(ctx, is_set_nullable=True)
-
-    return set_descriptor_types_for_field(ctx)
+    # With PEP 696 TypeVar defaults and _NT, mypy already infers the correct
+    # field type from the stubs. No plugin intervention needed for basic fields.
+    return ctx.default_return_type
 
 
 def set_descriptor_types_for_field(
@@ -175,7 +175,11 @@ def set_descriptor_types_for_field(
                 ctx.context,
             )
 
-    return default_return_type.copy_modified(args=[set_type, get_type])
+    # Preserve _NT (3rd arg) and any additional args, while updating _ST and _GT
+    new_args: list[MypyType] = [set_type, get_type]
+    if len(default_return_type.args) > 2:
+        new_args.extend(default_return_type.args[2:])
+    return default_return_type.copy_modified(args=new_args)
 
 
 def determine_type_of_array_field(ctx: FunctionContext, django_context: DjangoContext) -> MypyType:
@@ -211,7 +215,7 @@ def determine_type_of_array_field(ctx: FunctionContext, django_context: DjangoCo
         return _type
 
     # Both base_field and return type should derive from Field and thus expect 2 arguments
-    assert len(base_field_arg_type.args) == len(default_return_type.args) == 2
+    assert len(base_field_arg_type.args) >= 2 and len(default_return_type.args) >= 2
     args = []
     for new_type, default_arg in zip(base_field_arg_type.args, default_return_type.args, strict=False):
         # Drop any base_field Combinable type
@@ -226,6 +230,9 @@ def determine_type_of_array_field(ctx: FunctionContext, django_context: DjangoCo
 
         args.append(helpers.convert_any_to_type(default_arg, new_type))
 
+    # Preserve _NT and any additional args from the outer ArrayField
+    if len(default_return_type.args) > 2:
+        args.extend(default_return_type.args[2:])
     return default_return_type.copy_modified(args=args)
 
 
