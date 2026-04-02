@@ -92,7 +92,7 @@ def get_field_type_from_model_type_info(info: TypeInfo | None, field_name: str) 
     if not isinstance(field_type, Instance):
         return None
     # Field declares a set and a get type arg. Fallback to `None` when we can't find any args
-    if len(field_type.args) != 2:
+    if len(field_type.args) < 2:
         return None
     return field_type
 

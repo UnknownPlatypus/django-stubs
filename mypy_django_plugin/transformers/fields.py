@@ -21,6 +21,24 @@ if TYPE_CHECKING:
     from mypy_django_plugin.django.context import DjangoContext
 
 
+def _get_nt_default(field_info: TypeInfo) -> MypyType | None:
+    """Get the default _NT type (Literal[False]) from a field's type params."""
+    if len(field_info.defn.type_vars) >= 3:
+        nt_var = field_info.defn.type_vars[2]
+        if nt_var.has_default:
+            return nt_var.default
+    return None
+
+
+def _make_field_args(field_info: TypeInfo, set_type: MypyType, get_type: MypyType) -> list[MypyType]:
+    """Build [set_type, get_type, nt_default] args list for creating field Instances."""
+    args: list[MypyType] = [set_type, get_type]
+    nt_default = _get_nt_default(field_info)
+    if nt_default is not None:
+        args.append(nt_default)
+    return args
+
+
 def _get_current_field_from_assignment(
     ctx: FunctionContext, django_context: DjangoContext
 ) -> Field[Any, Any] | ForeignObjectRel | None:
