@@ -165,11 +165,13 @@ class DjangoContext:
             if rel_model_info is None:
                 return AnyType(TypeOfAny.explicit)
 
-            primary_key_field = self.get_primary_key_field(related_model_cls)
-            primary_key_type = self.get_field_get_type(api, rel_model_info, primary_key_field, method="init")
+            target_field = self.get_related_target_field(related_model_cls, field)
+            if not target_field:
+                return AnyType(TypeOfAny.explicit)
+            target_type = self.get_field_get_type(api, rel_model_info, target_field, method="init")
 
-            model_and_primary_key_type = UnionType.make_union([Instance(rel_model_info, []), primary_key_type])
-            return make_optional_type(model_and_primary_key_type)
+            model_and_target_type = UnionType.make_union([Instance(rel_model_info, []), target_type])
+            return make_optional_type(model_and_target_type)
 
         field_info = helpers.lookup_class_typeinfo(api, field.__class__)
         if field_info is None:
@@ -177,16 +179,18 @@ class DjangoContext:
         return helpers.get_private_descriptor_type(field_info, "_pyi_lookup_exact_type", is_nullable=field.null)
 
     def get_related_target_field(
-        self, related_model_cls: type[Model], field: ForeignKey[Any, Any]
+        self, related_model_cls: type[Model], field: RelatedField[Any, Any] | ForeignObjectRel
     ) -> Field[Any, Any] | None:
-        # ForeignKey only supports one `to_fields` item (ForeignObject supports many)
-        assert len(field.to_fields) == 1
-        to_field_name = field.to_fields[0]
-        if to_field_name:
-            rel_field = related_model_cls._meta.get_field(to_field_name)
-            if not isinstance(rel_field, Field):
-                return None  # Not supported
-            return rel_field
+        if isinstance(field, ForeignKey):
+            # ForeignKey only supports one `to_fields` item (ForeignObject supports many)
+            assert len(field.to_fields) == 1
+            to_field_name = field.to_fields[0]
+            if to_field_name:
+                rel_field = related_model_cls._meta.get_field(to_field_name)
+                if not isinstance(rel_field, Field):
+                    return None  # Not supported
+                return rel_field
+
         return self.get_primary_key_field(related_model_cls)
 
     def get_primary_key_field(self, model_cls: type[Model]) -> Field[Any, Any]:
@@ -404,14 +408,14 @@ class DjangoContext:
                 continue
 
             field = currently_observed_model._meta.get_field(field_part)
-            if isinstance(field, RelatedField):
+            if isinstance(field, RelatedField | ForeignObjectRel):
                 currently_observed_model = self.get_field_related_model_cls(field)
-                model_name = currently_observed_model._meta.model_name
-                if model_name is not None and field_part == (model_name + "_id"):
-                    field = self.get_primary_key_field(currently_observed_model)
-
-            if isinstance(field, ForeignObjectRel):
-                currently_observed_model = self.get_field_related_model_cls(field)
+                # When using the _id suffix (e.g. publisher_id), resolve to the
+                # actual target field so downstream code sees a plain Field.
+                if isinstance(field, RelatedField) and field_part != field.name and field_part == field.attname:
+                    target = self.get_related_target_field(currently_observed_model, field)
+                    if target is not None:
+                        field = target
 
         # Guaranteed by `query.solve_lookup_type` before.
         assert isinstance(field, Field | ForeignObjectRel)
