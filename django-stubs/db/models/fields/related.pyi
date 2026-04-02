@@ -6,7 +6,7 @@ from django import forms
 from django.core import validators  # due to weird mypy.stubtest error
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.models.base import Model
-from django.db.models.expressions import Combinable, Expression
+from django.db.models.expressions import Expression
 from django.db.models.fields import NOT_PROVIDED, Field, _AllLimitChoicesTo, _ErrorMessagesMapping, _LimitChoicesTo
 from django.db.models.fields.mixins import FieldCacheMixin
 from django.db.models.fields.related_descriptors import ForeignKeyDeferredAttribute, ManyRelatedManager
@@ -36,8 +36,10 @@ def lazy_related_operation(
 _ST = TypeVar("_ST", contravariant=True)
 # __get__ return type
 _GT = TypeVar("_GT", covariant=True, default=_ST)
+# null flag type
+_NT = TypeVar("_NT", Literal[True], Literal[False], default=Literal[False])
 
-class RelatedField(FieldCacheMixin, Field[_ST, _GT]):
+class RelatedField(FieldCacheMixin, Field[_ST, _GT, _NT]):
     one_to_many: bool
     one_to_one: bool
     many_to_many: bool
@@ -58,7 +60,7 @@ class RelatedField(FieldCacheMixin, Field[_ST, _GT]):
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: bool = ...,
+        null: _NT = ...,
         db_index: bool = ...,
         rel: ForeignObjectRel | None = ...,
         default: Any = ...,
@@ -95,7 +97,7 @@ class RelatedField(FieldCacheMixin, Field[_ST, _GT]):
     @property
     def target_field(self) -> Field: ...
 
-class ForeignObject(RelatedField[_ST, _GT]):
+class ForeignObject(RelatedField[_ST, _GT, _NT]):
     remote_field: ForeignObjectRel
     rel_class: type[ForeignObjectRel]
     from_fields: Sequence[str]
@@ -118,7 +120,7 @@ class ForeignObject(RelatedField[_ST, _GT]):
         primary_key: bool = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: bool = ...,
+        null: _NT = ...,
         db_index: bool = ...,
         default: Any = ...,
         db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
@@ -173,10 +175,7 @@ class ForeignObject(RelatedField[_ST, _GT]):
     related_accessor_class: type[ReverseManyToOneDescriptor]
     requires_unique_target: bool
 
-class ForeignKey(ForeignObject[_ST, _GT]):
-    _pyi_private_set_type: Any | Combinable
-    _pyi_private_get_type: Any
-
+class ForeignKey(ForeignObject[_ST, _GT, _NT]):
     descriptor_class: type[ForeignKeyDeferredAttribute]
     remote_field: ManyToOneRel
     rel_class: type[ManyToOneRel]
@@ -198,7 +197,7 @@ class ForeignKey(ForeignObject[_ST, _GT]):
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: bool = ...,
+        null: _NT = ...,
         db_index: bool = ...,
         default: Any = ...,
         db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
@@ -226,10 +225,7 @@ class ForeignKey(ForeignObject[_ST, _GT]):
     def cast_db_type(self, connection: BaseDatabaseWrapper) -> str | None: ...
     def convert_empty_strings(self, value: Any, expression: Expression, connection: BaseDatabaseWrapper) -> Any: ...
 
-class OneToOneField(ForeignKey[_ST, _GT]):
-    _pyi_private_set_type: Any | Combinable
-    _pyi_private_get_type: Any
-
+class OneToOneField(ForeignKey[_ST, _GT, _NT]):
     remote_field: OneToOneRel
     rel_class: type[OneToOneRel]
     def __init__(
@@ -250,7 +246,7 @@ class OneToOneField(ForeignKey[_ST, _GT]):
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: bool = ...,
+        null: _NT = ...,
         db_index: bool = ...,
         default: Any = ...,
         db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
@@ -288,7 +284,7 @@ class OneToOneField(ForeignKey[_ST, _GT]):
 _Through = TypeVar("_Through", bound=Model)
 _To = TypeVar("_To", bound=Model)
 
-class ManyToManyField(RelatedField[Any, Any], Generic[_To, _Through]):
+class ManyToManyField(RelatedField[Any, Any, _NT], Generic[_To, _Through]):
     has_null_arg: bool
     swappable: bool
 

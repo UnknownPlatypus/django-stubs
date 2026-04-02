@@ -1,6 +1,6 @@
 import json
 from collections.abc import Callable
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar, Literal, TypeVar
 
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.models import Model, lookups
@@ -18,8 +18,10 @@ from .mixins import CheckFieldDefaultMixin
 _ST = TypeVar("_ST", contravariant=True, default=Any)
 # __get__ return type
 _GT = TypeVar("_GT", covariant=True, default=Any)
+# null flag type
+_NT = TypeVar("_NT", Literal[True], Literal[False], default=Literal[False])
 
-class JSONField(CheckFieldDefaultMixin, Field[_ST, _GT]):
+class JSONField(CheckFieldDefaultMixin, Field[_ST, _GT, _NT]):
     encoder: type[json.JSONEncoder] | None
     decoder: type[json.JSONDecoder] | None
     def __init__(
