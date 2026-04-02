@@ -38,6 +38,14 @@ BASEFORM_CLASS_FULLNAME = "django.forms.forms.BaseForm"
 FORM_CLASS_FULLNAME = "django.forms.forms.Form"
 MODELFORM_CLASS_FULLNAME = "django.forms.models.ModelForm"
 
+BASEFORMSET_CLASS_FULLNAME = "django.forms.formsets.BaseFormSet"
+BASEMODELFORMSET_CLASS_FULLNAME = "django.forms.models.BaseModelFormSet"
+BASEINLINEFORMSET_CLASS_FULLNAME = "django.forms.models.BaseInlineFormSet"
+
+FORMSET_FACTORY_FULLNAME = "django.forms.formsets.formset_factory"
+MODELFORMSET_FACTORY_FULLNAME = "django.forms.models.modelformset_factory"
+INLINEFORMSET_FACTORY_FULLNAME = "django.forms.models.inlineformset_factory"
+
 FORM_MIXIN_CLASS_FULLNAME = "django.views.generic.edit.FormMixin"
 
 REVERSE_ONE_TO_ONE_DESCRIPTOR = "django.db.models.fields.related_descriptors.ReverseOneToOneDescriptor"
