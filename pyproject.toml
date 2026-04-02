@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-compatible-mypy = ["mypy>=1.13,<1.21"]
+compatible-mypy = ["mypy>=1.16,<1.21"]
 oracle = ["oracledb"]
 redis = ["redis", "types-redis"]
 
