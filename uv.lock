@@ -308,7 +308,7 @@ ty = [
 requires-dist = [
     { name = "django" },
     { name = "django-stubs-ext", editable = "ext" },
-    { name = "mypy", marker = "extra == 'compatible-mypy'", specifier = ">=1.13,<1.21" },
+    { name = "mypy", marker = "extra == 'compatible-mypy'", specifier = ">=1.16,<1.21" },
     { name = "oracledb", marker = "extra == 'oracle'" },
     { name = "redis", marker = "extra == 'redis'" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
