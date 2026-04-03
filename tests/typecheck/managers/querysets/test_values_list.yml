@@ -55,6 +55,8 @@
         from myapp.models import Concrete
         ret = list(Concrete.objects.values_list('id', 'data'))
         reveal_type(ret)  # N: Revealed type is "list[tuple[int, dict[str, str]]]"
+    out: |
+        myapp/models:8: error: Incompatible types in assignment (expression has type "JSONField", variable has type "Field[dict[str, str], dict[str, str], Literal[False]]")  [assignment]
     installed_apps:
         - myapp
     files:

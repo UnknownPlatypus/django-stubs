@@ -50,6 +50,7 @@ from mypy.types import (
     Type,
     TypedDictType,
     TypeOfAny,
+    TypeVarType,
     UnionType,
     get_proper_type,
 )
@@ -415,8 +416,55 @@ def iter_bases(info: TypeInfo) -> Iterator[Instance]:
         yield from iter_bases(base.type)
 
 
+def get_field_descriptor_type_from_typevar_default(
+    type_info: TypeInfo, param_index: int, is_nullable: bool
+) -> MypyType:
+    """Get the set (0) or get (1) type from Field's TypeVar defaults.
+
+    Walks the MRO to find the Field base class and reads the TypeVar default
+    for the requested parameter index.
+    """
+    from mypy.maptype import map_instance_to_supertype
+
+    # Find Field in MRO
+    field_base = None
+    for base in type_info.mro:
+        if base.fullname == fullnames.FIELD_FULLNAME:
+            field_base = base
+            break
+    if field_base is None:
+        return AnyType(TypeOfAny.explicit)
+
+    # Create an instance with the class's own TypeVars as args
+    instance = fill_typevars(type_info)
+    assert isinstance(instance, Instance)
+
+    try:
+        mapped = map_instance_to_supertype(instance, field_base)
+    except TypeError:
+        return AnyType(TypeOfAny.from_error)
+
+    if param_index >= len(mapped.args):
+        return AnyType(TypeOfAny.explicit)
+
+    arg_type = get_proper_type(mapped.args[param_index])
+
+    # If it's a TypeVar, use its default
+    if isinstance(arg_type, TypeVarType):
+        if arg_type.has_default():
+            descriptor_type = get_proper_type(arg_type.default)
+        else:
+            return AnyType(TypeOfAny.explicit)
+    else:
+        descriptor_type = arg_type
+
+    if is_nullable:
+        descriptor_type = make_optional_type(descriptor_type)
+    return descriptor_type
+
+
 def get_private_descriptor_type(type_info: TypeInfo, private_field_name: str, is_nullable: bool) -> MypyType:
-    """Return declared type of type_info's private_field_name (used for private Field attributes)"""
+    """Return declared type of type_info's private_field_name (used for _pyi_lookup_exact_type)."""
     sym = type_info.get(private_field_name)
     if sym is None:
         return AnyType(TypeOfAny.explicit)
@@ -431,6 +479,14 @@ def get_private_descriptor_type(type_info: TypeInfo, private_field_name: str, is
             descriptor_type = make_optional_type(descriptor_type)
         return descriptor_type
     return AnyType(TypeOfAny.explicit)
+
+
+def build_field_instance(field_info: TypeInfo, set_type: MypyType, get_type: MypyType) -> Instance:
+    """Create a Field Instance with set/get types, filling remaining TypeVar defaults."""
+    args: list[MypyType] = [set_type, get_type]
+    for tv in field_info.defn.type_vars[2:]:
+        args.append(tv.default if tv.has_default() else AnyType(TypeOfAny.special_form))
+    return Instance(field_info, args)
 
 
 def get_field_lookup_exact_type(api: TypeChecker, field: Field[Any, Any]) -> MypyType:

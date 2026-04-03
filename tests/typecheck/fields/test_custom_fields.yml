@@ -8,11 +8,11 @@
         reveal_type(user.my_custom_field2)  # N: Revealed type is "myapp.models.CustomFieldValue"
         reveal_type(user.my_custom_field3)  # N: Revealed type is "bool"
         reveal_type(user.my_custom_field4)  # N: Revealed type is "myapp.models.CustomFieldValue"
-        reveal_type(user.my_custom_field5)  # N: Revealed type is "myapp.models.CustomFieldValue"
-        reveal_type(user.my_custom_field6)  # N: Revealed type is "myapp.models.CustomFieldValue"
-        reveal_type(user.my_custom_field7)  # N: Revealed type is "bool"
-        reveal_type(user.my_custom_field8)  # N: Revealed type is "myapp.models.CustomFieldValue"
-        reveal_type(user.my_custom_field9)  # N: Revealed type is "myapp.models.CustomFieldValue"
+        reveal_type(user.my_custom_field5)  # N: Revealed type is "myapp.models.CustomFieldValue | None"
+        reveal_type(user.my_custom_field6)  # N: Revealed type is "myapp.models.CustomFieldValue | None"
+        reveal_type(user.my_custom_field7)  # N: Revealed type is "bool | None"
+        reveal_type(user.my_custom_field8)  # N: Revealed type is "myapp.models.CustomFieldValue | None"
+        reveal_type(user.my_custom_field9)  # N: Revealed type is "myapp.models.CustomFieldValue | None"
         reveal_type(user.my_custom_field10)  # N: Revealed type is "bool"
         reveal_type(user.my_custom_field11)  # N: Revealed type is "bool"
         reveal_type(user.my_custom_field12)  # N: Revealed type is "myapp.models.CustomFieldValue | None"
@@ -22,8 +22,8 @@
 
         reveal_type(user.my_custom_field_any1)  # N: Revealed type is "Any"
         reveal_type(user.my_custom_field_any2)  # N: Revealed type is "Any"
-        reveal_type(user.my_custom_field_any3)  # N: Revealed type is "Any"
-        reveal_type(user.my_custom_field_any4)  # N: Revealed type is "Any"
+        reveal_type(user.my_custom_field_any3)  # N: Revealed type is "Any | None"
+        reveal_type(user.my_custom_field_any4)  # N: Revealed type is "Any | None"
     monkeypatch: true
     installed_apps:
         - myapp
@@ -34,7 +34,10 @@
                 from django.db import models
                 from django.db.models import fields
 
-                from typing import Any, Generic, TypeVar
+                from typing import Any, Generic, Literal, TypeVar
+                from typing_extensions import TypeVar as TypeVarExt
+
+                _NT = TypeVarExt("_NT", Literal[True], Literal[False], default=Literal[False])
 
                 _ST = TypeVar("_ST", contravariant=True)
                 _GT = TypeVar("_GT", covariant=True)
@@ -43,18 +46,18 @@
 
                 class CustomFieldValue: ...
 
-                class GenericField(fields.Field[_ST, _GT]): ...
+                class GenericField(fields.Field[_ST, _GT, _NT]): ...
 
-                class SingleTypeField(fields.Field[T, T]): ...
+                class SingleTypeField(fields.Field[T, T, _NT]): ...
 
-                class CustomValueField(fields.Field[CustomFieldValue | int, CustomFieldValue]): ...
+                class CustomValueField(fields.Field[CustomFieldValue | int, CustomFieldValue, _NT]): ...
 
-                class AdditionalTypeVarField(fields.Field[_ST, _GT], Generic[_ST, _GT, T]): ...
+                class AdditionalTypeVarField(fields.Field[_ST, _GT, _NT], Generic[_ST, _GT, T, _NT]): ...
 
-                class CustomSmallIntegerField(fields.SmallIntegerField[_ST, _GT]): ...
+                class CustomSmallIntegerField(fields.SmallIntegerField[_ST, _GT, _NT]): ...
 
-                class FieldImplicitAny(fields.Field): ...
-                class FieldExplicitAny(fields.Field[Any, Any]): ...
+                class FieldImplicitAny(fields.Field[Any, Any, _NT]): ...
+                class FieldExplicitAny(fields.Field[Any, Any, _NT]): ...
 
                 class User(models.Model):
                     id = models.AutoField(primary_key=True)
@@ -65,22 +68,23 @@
                     my_custom_field_any1 = FieldImplicitAny()
                     my_custom_field_any2 = FieldExplicitAny()
 
-                    # test null=True on fields with non-optional generic types throw error
-                    my_custom_field5 = GenericField[CustomFieldValue | int, CustomFieldValue](null=True)  # E: GenericField is nullable but its generic get type parameter is not optional  [misc]
-                    my_custom_field6 = CustomValueField(null=True)  # E: CustomValueField is nullable but its generic get type parameter is not optional  [misc]
-                    my_custom_field7 = SingleTypeField[bool](null=True)  # E: SingleTypeField is nullable but its generic get type parameter is not optional  [misc]
-                    my_custom_field8 = AdditionalTypeVarField[CustomFieldValue | int, CustomFieldValue, bool](null=True)  # E: AdditionalTypeVarField is nullable but its generic get type parameter is not optional  [misc]
-                    my_custom_field9 = fields.Field[CustomFieldValue | int, CustomFieldValue](null=True)  # E: Field is nullable but its generic get type parameter is not optional  [misc]
+                    # test null=True on fields with non-optional generic types: with _NT=Literal[True],
+                    # the __get__ overload automatically adds | None to the get type
+                    my_custom_field5 = GenericField[CustomFieldValue | int, CustomFieldValue, Literal[True]](null=True)
+                    my_custom_field6 = CustomValueField[Literal[True]](null=True)
+                    my_custom_field7 = SingleTypeField[bool, Literal[True]](null=True)
+                    my_custom_field8 = AdditionalTypeVarField[CustomFieldValue | int, CustomFieldValue, bool, Literal[True]](null=True)
+                    my_custom_field9 = fields.Field[CustomFieldValue | int, CustomFieldValue, Literal[True]](null=True)
 
-                    # test overriding fields that set _pyi_private_set_type or _pyi_private_get_type
+                    # test overriding fields with explicit TypeVar parameters
                     my_custom_field10 = fields.SmallIntegerField[bool, bool]()
                     my_custom_field11 = CustomSmallIntegerField[bool, bool]()
 
                     # test null=True on fields with non-optional generic types throw no errors
-                    my_custom_field12 = fields.Field[CustomFieldValue | int, CustomFieldValue | None](null=True)
-                    my_custom_field13 = GenericField[CustomFieldValue | int, CustomFieldValue | None](null=True)
-                    my_custom_field14 = SingleTypeField[bool | None](null=True)
-                    my_custom_field15 = fields.Field[None, None](null=True)
+                    my_custom_field12 = fields.Field[CustomFieldValue | int, CustomFieldValue | None, Literal[True]](null=True)
+                    my_custom_field13 = GenericField[CustomFieldValue | int, CustomFieldValue | None, Literal[True]](null=True)
+                    my_custom_field14 = SingleTypeField[bool | None, Literal[True]](null=True)
+                    my_custom_field15 = fields.Field[None, None, Literal[True]](null=True)
 
                     # test null=True on Any does not raise
                     my_custom_field_any3 = FieldImplicitAny(null=True)

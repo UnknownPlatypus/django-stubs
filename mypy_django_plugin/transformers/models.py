@@ -302,7 +302,9 @@ class AddDefaultPrimaryKey(ModelClassInitializer):
                 is_get_nullable=False,
             )
 
-            self.add_new_var_to_model_class(dest_name, Instance(auto_field_info, [set_type, get_type]))
+            self.add_new_var_to_model_class(
+                dest_name, helpers.build_field_instance(auto_field_info, set_type, get_type)
+            )
 
 
 class AddPrimaryKeyAlias(AddDefaultPrimaryKey):
@@ -354,7 +356,7 @@ class AddRelatedModelsId(ModelClassInitializer):
             set_type, get_type = get_field_descriptor_types(
                 field_info, is_set_nullable=is_nullable, is_get_nullable=is_nullable
             )
-            self.add_new_var_to_model_class(field.attname, Instance(field_info, [set_type, get_type]))
+            self.add_new_var_to_model_class(field.attname, helpers.build_field_instance(field_info, set_type, get_type))
 
 
 class AddManagers(ModelClassInitializer):
@@ -770,10 +772,8 @@ class ProcessManyToManyFields(ModelClassInitializer):
         default_pk_field = self.lookup_typeinfo(self.django_context.settings.DEFAULT_AUTO_FIELD)
         if default_pk_field is None:
             raise helpers.IncompleteDefnException()
-        return Instance(
-            default_pk_field,
-            list(get_field_descriptor_types(default_pk_field, is_set_nullable=True, is_get_nullable=False)),
-        )
+        set_type, get_type = get_field_descriptor_types(default_pk_field, is_set_nullable=True, is_get_nullable=False)
+        return helpers.build_field_instance(default_pk_field, set_type, get_type)
 
     @cached_property
     def model_pk_instance(self) -> Instance:
@@ -861,12 +861,10 @@ class ProcessManyToManyFields(ModelClassInitializer):
         helpers.add_new_sym_for_info(
             through_model,
             name=from_name,
-            sym_type=Instance(
+            sym_type=helpers.build_field_instance(
                 self.fk_field,
-                [
-                    helpers.convert_any_to_type(self.fk_field_types.set, Instance(self.model_classdef.info, [])),
-                    helpers.convert_any_to_type(self.fk_field_types.get, Instance(self.model_classdef.info, [])),
-                ],
+                helpers.convert_any_to_type(self.fk_field_types.set, Instance(self.model_classdef.info, [])),
+                helpers.convert_any_to_type(self.fk_field_types.get, Instance(self.model_classdef.info, [])),
             ),
         )
         # Add the foreign key's '_id' field: <containing_model>_id or from_<model>_id
@@ -882,12 +880,10 @@ class ProcessManyToManyFields(ModelClassInitializer):
         helpers.add_new_sym_for_info(
             through_model,
             name=to_name,
-            sym_type=Instance(
+            sym_type=helpers.build_field_instance(
                 self.fk_field,
-                [
-                    helpers.convert_any_to_type(self.fk_field_types.set, m2m_args.to.model),
-                    helpers.convert_any_to_type(self.fk_field_types.get, m2m_args.to.model),
-                ],
+                helpers.convert_any_to_type(self.fk_field_types.set, m2m_args.to.model),
+                helpers.convert_any_to_type(self.fk_field_types.get, m2m_args.to.model),
             ),
         )
         # Add the foreign key's '_id' field: <other_model>_id or to_<model>_id

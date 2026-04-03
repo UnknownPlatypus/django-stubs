@@ -11,7 +11,7 @@ from django.db.models.sql.compiler import SQLCompiler, _AsSqlType
 from django.utils.functional import _StrOrPromise
 from typing_extensions import Self, override
 
-from . import Field
+from . import _NT, Field
 from .mixins import CheckFieldDefaultMixin
 
 # __set__ value type
@@ -19,7 +19,7 @@ _ST = TypeVar("_ST", contravariant=True, default=Any)
 # __get__ return type
 _GT = TypeVar("_GT", covariant=True, default=Any)
 
-class JSONField(CheckFieldDefaultMixin, Field[_ST, _GT]):
+class JSONField(CheckFieldDefaultMixin, Field[_ST, _GT, _NT]):
     encoder: type[json.JSONEncoder] | None
     decoder: type[json.JSONDecoder] | None
     def __init__(

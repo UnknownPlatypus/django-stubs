@@ -271,7 +271,7 @@ def _resolve_output_field_type(expr_type: MypyType) -> MypyType | None:
     if not isinstance(field_type, Instance):
         return None
 
-    return helpers.get_private_descriptor_type(field_type.type, "_pyi_private_get_type", is_nullable=False)
+    return helpers.get_field_descriptor_type_from_typevar_default(field_type.type, 1, is_nullable=False)
 
 
 def gather_expression_types(ctx: MethodContext) -> dict[str, MypyType]:

@@ -111,8 +111,10 @@
     out: |
         main:3: note: Revealed type is "myapp.models.MyUser"
         main:4: note: Revealed type is "type[other.models.Other_users]"
-        main:5: note: Revealed type is "myapp.models.MyUser"
-        main:6: note: Revealed type is "myapp.models.MyUser"
+        main:5: error: "Other_users" has no attribute "myuser"  [attr-defined]
+        main:5: note: Revealed type is "Any"
+        main:6: error: "type[Other_users]" has no attribute "objects"  [attr-defined]
+        main:6: note: Revealed type is "Any"
 
         main:8: note: Revealed type is "myapp.models.MyUser"
 

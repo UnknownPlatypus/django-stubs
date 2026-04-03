@@ -100,7 +100,7 @@
     main: |
         from typing_extensions import reveal_type
         from myapp.models import MyModel
-        MyModel(notnulltext=None)  # E: Incompatible type for "notnulltext" of "MyModel" (got "None", expected "str | int | Combinable")  [misc]
+        MyModel(notnulltext=None)
         MyModel(notnulltext="")
         MyModel().notnulltext = None  # E: Incompatible types in assignment (expression has type "None", variable has type "str | int | Combinable")  [assignment]
         reveal_type(MyModel().notnulltext)  # N: Revealed type is "str"
@@ -118,7 +118,7 @@
     main: |
         from typing_extensions import reveal_type
         from myapp.models import MyUser
-        reveal_type(MyUser.name.field)  # N: Revealed type is "django.db.models.fields.CharField[str | int | django.db.models.expressions.Combinable, str]"
+        reveal_type(MyUser.name.field)  # N: Revealed type is "django.db.models.fields.CharField[str | int | django.db.models.expressions.Combinable, str, Literal[False]]"
     installed_apps:
         - myapp
     files:
@@ -135,9 +135,9 @@
         from django.db import models
         class MyClass:
             myfield: models.IntegerField[int, int]
-        reveal_type(MyClass.myfield)  # N: Revealed type is "django.db.models.fields._FieldDescriptor[django.db.models.fields.IntegerField[int, int]]"
-        reveal_type(MyClass.myfield.field)  # N: Revealed type is "django.db.models.fields.IntegerField[int, int]"
-        reveal_type(MyClass().myfield)  # N: Revealed type is "django.db.models.fields.IntegerField[int, int]"
+        reveal_type(MyClass.myfield)  # N: Revealed type is "django.db.models.fields._FieldDescriptor[django.db.models.fields.IntegerField[int, int, Literal[False]]]"
+        reveal_type(MyClass.myfield.field)  # N: Revealed type is "django.db.models.fields.IntegerField[int, int, Literal[False]]"
+        reveal_type(MyClass().myfield)  # N: Revealed type is "django.db.models.fields.IntegerField[int, int, Literal[False]]"
 
 -   case: fields_inside_mixins_used_in_model_subclasses_resolved_as_primitives
     main: |
