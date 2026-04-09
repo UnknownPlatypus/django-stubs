@@ -17,7 +17,7 @@ from django.db.models.fields.reverse_related import ForeignObjectRel
 from django.db.models.lookups import Exact
 from django.db.models.sql.query import Query
 from mypy.typeanal import make_optional_type
-from mypy.types import AnyType, Instance, ProperType, TypeOfAny, UnionType, get_proper_type
+from mypy.types import AnyType, Instance, LiteralType, ProperType, TypeOfAny, UnionType, get_proper_type
 from mypy.types import Type as MypyType
 
 from mypy_django_plugin.exceptions import UnregisteredModelError
@@ -97,17 +97,32 @@ def get_field_type_from_model_type_info(info: TypeInfo | None, field_name: str) 
     return field_type
 
 
+def _is_nullable_field_type(field_type: Instance) -> bool:
+    """Check if the field type has _NT=Literal[True] (3rd type arg)."""
+    if len(field_type.args) >= 3:
+        nt = get_proper_type(field_type.args[2])
+        if isinstance(nt, LiteralType) and nt.value is True:
+            return True
+    return False
+
+
 def _get_field_set_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> MypyType | None:
     field_type = get_field_type_from_model_type_info(info, field_name)
     if field_type is not None:
-        return field_type.args[0]
+        set_type: MypyType = field_type.args[0]
+        if _is_nullable_field_type(field_type):
+            set_type = helpers.make_optional_type(set_type)
+        return set_type
     return None
 
 
 def _get_field_get_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> MypyType | None:
     field_type = get_field_type_from_model_type_info(info, field_name)
     if field_type is not None:
-        return field_type.args[1]
+        get_type: MypyType = field_type.args[1]
+        if _is_nullable_field_type(field_type):
+            get_type = helpers.make_optional_type(get_type)
+        return get_type
     return None
 
 
