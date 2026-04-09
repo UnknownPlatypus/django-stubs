@@ -250,27 +250,25 @@ def set_descriptor_types_for_field(
     if isinstance(proper_set, UninhabitedType) or isinstance(proper_get, UninhabitedType):
         return default_return_type
 
-    # If the mapped types are top-level Any (unresolved TypeVars), use the TypeVar defaults
-    # from get_field_descriptor_types. If they're concrete, use the mapped types directly.
-    # We cannot use convert_any_to_type here because types like Sequence[Any] contain
-    # Any inside that would get incorrectly replaced.
-    if not isinstance(proper_set, AnyType):
-        set_type = mapped_set_type
-    if not isinstance(proper_get, AnyType):
-        get_type = mapped_get_type
+    # Replace only Any args in default_return_type with the resolved types.
+    # Don't change the number of args — the class may have fewer type params than Field.
+    new_args = list(default_return_type.args)
+    orig_mapped = map_instance_to_supertype(default_return_type, base_field_type)
 
-    # Ensure we always have 3 args. If the default_return_type doesn't have _NT resolved,
-    # use the default from the TypeVar (Literal[False]).
-    extra_args = mapped_args[2:]
-    if not extra_args:
-        # Get _NT from the field class's TypeVar defaults
-        full_instance = fill_typevars(default_return_type.type)
-        assert isinstance(full_instance, Instance)
-        full_mapped = map_instance_to_supertype(full_instance, base_field_type)
-        if len(full_mapped.args) >= 3:
-            extra_args = [_resolve_typevar_defaults(full_mapped.args[2])]
+    # Build a mapping from Field-level position to resolved type
+    field_level_types = [set_type, get_type, *mapped_args[2:]]
 
-    return default_return_type.copy_modified(args=[set_type, get_type, *extra_args])
+    for orig_field_arg, resolved_arg in zip(orig_mapped.args, field_level_types, strict=False):
+        # Find which position in default_return_type.args this Field arg maps to
+        for j, orig_arg in enumerate(new_args):
+            proper_orig = get_proper_type(orig_arg)
+            if orig_arg is orig_field_arg:
+                # This arg directly corresponds to a Field-level arg
+                if isinstance(proper_orig, AnyType):
+                    new_args[j] = resolved_arg
+                break
+
+    return default_return_type.copy_modified(args=new_args)
 
 
 def determine_type_of_array_field(ctx: FunctionContext, django_context: DjangoContext) -> MypyType:
