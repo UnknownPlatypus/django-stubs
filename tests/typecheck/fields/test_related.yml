@@ -260,7 +260,7 @@
         from myapp2.models import Profile
         reveal_type(Profile().user)  # N: Revealed type is "myapp.models.user.User"
         reveal_type(Profile().user.profile)  # N: Revealed type is "myapp2.models.Profile"
-        reveal_type(Profile.user.field)  # N: Revealed type is "django.db.models.fields.related.OneToOneField[myapp.models.user.User | django.db.models.expressions.Combinable, myapp.models.user.User]"
+        reveal_type(Profile.user.field)  # N: Revealed type is "django.db.models.fields.related.OneToOneField[myapp.models.user.User, myapp.models.user.User, Literal[False]]"
     installed_apps:
         - myapp
         - myapp2
@@ -655,8 +655,8 @@
         reveal_type(Author.blogs)  # N: Revealed type is "django.db.models.fields.related_descriptors.ManyToManyDescriptor[myapp.models.Blog, myapp.models.Author_blogs]"
         reveal_type(Author.blogs.through)  # N: Revealed type is "type[myapp.models.Author_blogs]"
         reveal_type(Author().blogs)  # N: Revealed type is "myapp.models.Blog_ManyRelatedManager[myapp.models.Author_blogs]"
-        reveal_type(Blog.publisher)  # N: Revealed type is "django.db.models.fields.related_descriptors.ForwardManyToOneDescriptor[django.db.models.fields.related.ForeignKey[myapp.models.Publisher | django.db.models.expressions.Combinable, myapp.models.Publisher]]"
-        reveal_type(Publisher.profile)  # N: Revealed type is "django.db.models.fields.related_descriptors.ForwardOneToOneDescriptor[django.db.models.fields.related.OneToOneField[myapp.models.Profile | django.db.models.expressions.Combinable, myapp.models.Profile]]"
+        reveal_type(Blog.publisher)  # N: Revealed type is "django.db.models.fields.related_descriptors.ForwardManyToOneDescriptor[django.db.models.fields.related.ForeignKey[myapp.models.Publisher, myapp.models.Publisher, Literal[False]]]"
+        reveal_type(Publisher.profile)  # N: Revealed type is "django.db.models.fields.related_descriptors.ForwardOneToOneDescriptor[django.db.models.fields.related.OneToOneField[myapp.models.Profile, myapp.models.Profile, Literal[False]]]"
         reveal_type(Author.file)  # N: Revealed type is "django.db.models.fields.files.FileDescriptor"
 
     installed_apps:
