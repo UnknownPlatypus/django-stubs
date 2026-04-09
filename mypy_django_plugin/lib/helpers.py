@@ -380,6 +380,18 @@ def is_optional(typ: MypyType) -> bool:
     return isinstance(typ, UnionType) and any(isinstance(get_proper_type(item), NoneTyp) for item in typ.items)
 
 
+def remove_optional(typ: MypyType) -> MypyType:
+    """Remove None from a union type."""
+    typ = get_proper_type(typ)
+    if isinstance(typ, UnionType):
+        items = [item for item in typ.items if not isinstance(get_proper_type(item), NoneTyp)]
+        if len(items) == 1:
+            return items[0]
+        if items:
+            return UnionType.make_union(items)
+    return typ
+
+
 # Duplicating mypy.semanal_shared.parse_bool because importing it directly caused ImportError (#1784)
 def parse_bool(expr: Expression) -> bool | None:
     if isinstance(expr, NameExpr):

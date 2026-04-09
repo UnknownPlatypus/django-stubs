@@ -355,6 +355,12 @@ class AddRelatedModelsId(ModelClassInitializer):
             args = make_field_args(
                 field_info, is_set_nullable=is_nullable, is_get_nullable=is_nullable, is_nullable=field.null
             )
+            # Strip inherent None from AutoField's _ST_AUTO default — the FK's own
+            # nullability is handled by is_nullable/is_set_nullable above
+            if args:
+                args[0] = helpers.remove_optional(args[0])
+                if is_nullable:
+                    args[0] = helpers.make_optional_type(args[0])
             self.add_new_var_to_model_class(field.attname, Instance(field_info, args))
 
 

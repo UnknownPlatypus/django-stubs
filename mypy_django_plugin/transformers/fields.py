@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 from django.core.exceptions import FieldDoesNotExist
-from django.db.models.fields import AutoField, Field
 from django.db.models.fields.related import RelatedField
 from mypy.maptype import map_instance_to_supertype
 from mypy.nodes import AssignmentStmt, NameExpr, TypeInfo
@@ -26,6 +25,7 @@ from mypy_django_plugin.lib import fullnames, helpers
 from mypy_django_plugin.transformers import manytomany
 
 if TYPE_CHECKING:
+    from django.db.models.fields import Field
     from django.db.models.fields.reverse_related import ForeignObjectRel
     from mypy.plugin import FunctionContext
 
@@ -191,10 +191,13 @@ def make_field_args(
 
 
 def set_descriptor_types_for_field_callback(ctx: FunctionContext, django_context: DjangoContext) -> MypyType:
-    current_field = _get_current_field_from_assignment(ctx, django_context)
-    if current_field is not None:
-        if isinstance(current_field, AutoField):
-            return set_descriptor_types_for_field(ctx, is_set_nullable=True)
+    default_return_type = get_proper_type(ctx.default_return_type)
+    # AutoFields should accept None for descriptor set (instance.pk = None).
+    # Check the TypeInfo MRO for AutoFieldMixin to detect AutoField/BigAutoField/SmallAutoField.
+    if isinstance(default_return_type, Instance):
+        for base in default_return_type.type.mro:
+            if base.name == "AutoFieldMixin":
+                return set_descriptor_types_for_field(ctx, is_set_nullable=True)
 
     return set_descriptor_types_for_field(ctx)
 
@@ -203,6 +206,12 @@ def set_descriptor_types_for_field(
     ctx: FunctionContext, *, is_set_nullable: bool = False, is_get_nullable: bool = False
 ) -> Instance:
     default_return_type = cast("Instance", ctx.default_return_type)
+
+    # AutoFields should accept None for descriptor set (instance.pk = None)
+    for base in default_return_type.type.mro:
+        if base.name == "AutoFieldMixin":
+            is_set_nullable = True
+            break
 
     is_primary_key = helpers.get_bool_call_argument_by_name(ctx, "primary_key", default=False)
     # Allow setting field value to `None` when a field is primary key and has a default that can produce a value

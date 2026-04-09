@@ -346,9 +346,19 @@ class DjangoContext:
         if field_info is None:
             return AnyType(TypeOfAny.from_error)
 
-        field_set_type = helpers.get_field_type_arg(
-            field_info, 0, is_nullable=self.get_field_nullability(field, method)
-        )
+        # For FK _id fields, get the target field's base type WITHOUT its inherent None.
+        # AutoField includes None in _ST_AUTO for descriptor access (instance.pk = None),
+        # but the FK's _id attribute shouldn't inherit that. Apply nullability only from
+        # get_field_nullability which considers the FK's own null/default/pk state.
+        is_nullable = self.get_field_nullability(field, method)
+        if target_field is not field:
+            # Get the raw type without nullability, then apply the FK's own nullability
+            field_set_type = helpers.get_field_type_arg(field_info, 0, is_nullable=False)
+            field_set_type = helpers.remove_optional(field_set_type)
+            if is_nullable:
+                field_set_type = make_optional_type(field_set_type)
+        else:
+            field_set_type = helpers.get_field_type_arg(field_info, 0, is_nullable=is_nullable)
         if isinstance(target_field, ArrayField):
             argument_field_type = self.get_field_set_type(api, target_field.base_field, method=method)
             field_set_type = helpers.convert_any_to_type(field_set_type, argument_field_type)
