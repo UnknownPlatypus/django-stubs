@@ -415,22 +415,36 @@ def iter_bases(info: TypeInfo) -> Iterator[Instance]:
         yield from iter_bases(base.type)
 
 
-def get_private_descriptor_type(type_info: TypeInfo, private_field_name: str, is_nullable: bool) -> MypyType:
-    """Return declared type of type_info's private_field_name (used for private Field attributes)"""
-    sym = type_info.get(private_field_name)
-    if sym is None:
+def get_field_type_arg(type_info: TypeInfo, arg_index: int, is_nullable: bool) -> MypyType:
+    """Get the set (index=0) or get (index=1) type from a Field subclass's generic type parameters.
+
+    Uses PEP 696 TypeVar defaults to resolve concrete types from the Field base class.
+    """
+    from mypy.maptype import map_instance_to_supertype
+    from mypy.types import TypeVarType
+
+    field_base_info = next((base for base in type_info.mro if base.fullname == fullnames.FIELD_FULLNAME), None)
+    if field_base_info is None:
         return AnyType(TypeOfAny.explicit)
 
-    node = sym.node
-    if isinstance(node, Var):
-        descriptor_type = node.type
-        if descriptor_type is None:
-            return AnyType(TypeOfAny.explicit)
+    instance = fill_typevars(type_info)
+    assert isinstance(instance, Instance)
+    mapped = map_instance_to_supertype(instance, field_base_info)
 
-        if is_nullable:
-            descriptor_type = make_optional_type(descriptor_type)
-        return descriptor_type
-    return AnyType(TypeOfAny.explicit)
+    if arg_index >= len(mapped.args):
+        return AnyType(TypeOfAny.explicit)
+
+    arg = get_proper_type(mapped.args[arg_index])
+    if isinstance(arg, TypeVarType) and arg.has_default():
+        descriptor_type: MypyType = get_proper_type(arg.default)
+    elif isinstance(arg, TypeVarType):
+        descriptor_type = AnyType(TypeOfAny.explicit)
+    else:
+        descriptor_type = arg
+
+    if is_nullable:
+        descriptor_type = make_optional_type(descriptor_type)
+    return descriptor_type
 
 
 def get_field_lookup_exact_type(api: TypeChecker, field: Field[Any, Any]) -> MypyType:
@@ -445,7 +459,17 @@ def get_field_lookup_exact_type(api: TypeChecker, field: Field[Any, Any]) -> Myp
     field_info = lookup_class_typeinfo(api, field.__class__)
     if field_info is None:
         return AnyType(TypeOfAny.explicit)
-    return get_private_descriptor_type(field_info, "_pyi_lookup_exact_type", is_nullable=field.null)
+
+    sym = field_info.get("_pyi_lookup_exact_type")
+    if sym is None:
+        return AnyType(TypeOfAny.explicit)
+    node = sym.node
+    if isinstance(node, Var) and node.type is not None:
+        lookup_type: MypyType = node.type
+        if field.null:
+            lookup_type = make_optional_type(lookup_type)
+        return lookup_type
+    return AnyType(TypeOfAny.explicit)
 
 
 def get_nested_meta_node_for_current_class(info: TypeInfo) -> TypeInfo | None:

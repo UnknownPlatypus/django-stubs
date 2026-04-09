@@ -7,7 +7,18 @@ from django.db.models.fields import AutoField, Field
 from django.db.models.fields.related import RelatedField
 from mypy.maptype import map_instance_to_supertype
 from mypy.nodes import AssignmentStmt, NameExpr, TypeInfo
-from mypy.types import AnyType, Instance, NoneType, ProperType, TypeOfAny, UninhabitedType, UnionType, get_proper_type
+from mypy.typeops import fill_typevars
+from mypy.types import (
+    AnyType,
+    Instance,
+    LiteralType,
+    ProperType,
+    TypeOfAny,
+    TypeVarType,
+    UninhabitedType,
+    UnionType,
+    get_proper_type,
+)
 from mypy.types import Type as MypyType
 
 from mypy_django_plugin.exceptions import UnregisteredModelError
@@ -53,6 +64,7 @@ def reparametrize_related_field_type(related_field_type: Instance, set_type: Myp
     args = [
         helpers.convert_any_to_type(related_field_type.args[0], set_type),
         helpers.convert_any_to_type(related_field_type.args[1], get_type),
+        *related_field_type.args[2:],
     ]
     return related_field_type.copy_modified(args=args)
 
@@ -120,12 +132,62 @@ class FieldDescriptorTypes(NamedTuple):
     get: MypyType
 
 
+def _resolve_typevar_defaults(typ: MypyType) -> MypyType:
+    """Resolve TypeVar defaults to their concrete types."""
+    typ = get_proper_type(typ)
+    if isinstance(typ, TypeVarType) and typ.has_default():
+        return get_proper_type(typ.default)
+    return typ
+
+
 def get_field_descriptor_types(
     field_info: TypeInfo, *, is_set_nullable: bool, is_get_nullable: bool
 ) -> FieldDescriptorTypes:
-    set_type = helpers.get_private_descriptor_type(field_info, "_pyi_private_set_type", is_nullable=is_set_nullable)
-    get_type = helpers.get_private_descriptor_type(field_info, "_pyi_private_get_type", is_nullable=is_get_nullable)
+    """Extract set/get types from a Field subclass's generic type parameters (PEP 696 defaults)."""
+    # Find the Field base in MRO and map to get resolved type args
+    field_base_info = next((base for base in field_info.mro if base.fullname == fullnames.FIELD_FULLNAME), None)
+    if field_base_info is None:
+        return FieldDescriptorTypes(set=AnyType(TypeOfAny.explicit), get=AnyType(TypeOfAny.explicit))
+
+    instance = fill_typevars(field_info)
+    assert isinstance(instance, Instance)
+    mapped = map_instance_to_supertype(instance, field_base_info)
+
+    if len(mapped.args) < 2:
+        return FieldDescriptorTypes(set=AnyType(TypeOfAny.explicit), get=AnyType(TypeOfAny.explicit))
+
+    set_type = _resolve_typevar_defaults(mapped.args[0])
+    get_type = _resolve_typevar_defaults(mapped.args[1])
+
+    if is_set_nullable and not isinstance(set_type, AnyType) and not helpers.is_optional(set_type):
+        set_type = helpers.make_optional_type(set_type)
+    if is_get_nullable and not isinstance(get_type, AnyType) and not helpers.is_optional(get_type):
+        get_type = helpers.make_optional_type(get_type)
+
     return FieldDescriptorTypes(set=set_type, get=get_type)
+
+
+def make_field_args(
+    field_info: TypeInfo, *, is_set_nullable: bool, is_get_nullable: bool, is_nullable: bool
+) -> list[MypyType]:
+    """Create the full list of type args [_ST, _GT, _NT] for a Field Instance."""
+    descriptor_types = get_field_descriptor_types(
+        field_info, is_set_nullable=is_set_nullable, is_get_nullable=is_get_nullable
+    )
+    # Find the bool TypeInfo for creating Literal[True]/Literal[False]
+    field_base_info = next((base for base in field_info.mro if base.fullname == fullnames.FIELD_FULLNAME), None)
+    if field_base_info is not None:
+        instance = fill_typevars(field_info)
+        assert isinstance(instance, Instance)
+        mapped = map_instance_to_supertype(instance, field_base_info)
+        # Use the resolved _NT from the mapped args if available, falling back to Literal[False]
+        if len(mapped.args) >= 3:
+            nt_type = _resolve_typevar_defaults(mapped.args[2])
+            # Override with Literal[True] if the field is nullable
+            if is_nullable and isinstance(nt_type, LiteralType) and nt_type.value is False:
+                nt_type = LiteralType(value=True, fallback=nt_type.fallback)
+            return [descriptor_types.set, descriptor_types.get, nt_type]
+    return [descriptor_types.set, descriptor_types.get]
 
 
 def set_descriptor_types_for_field_callback(ctx: FunctionContext, django_context: DjangoContext) -> MypyType:
@@ -142,40 +204,34 @@ def set_descriptor_types_for_field(
 ) -> Instance:
     default_return_type = cast("Instance", ctx.default_return_type)
 
-    is_nullable = helpers.get_bool_call_argument_by_name(ctx, "null", default=False)
     is_primary_key = helpers.get_bool_call_argument_by_name(ctx, "primary_key", default=False)
     # Allow setting field value to `None` when a field is primary key and has a default that can produce a value
     default_expr = helpers.get_call_argument_by_name(ctx, "default")
     if default_expr is not None:
         is_set_nullable = is_primary_key
 
-    set_type, get_type = get_field_descriptor_types(
-        default_return_type.type,
-        is_set_nullable=is_set_nullable or is_nullable,
-        is_get_nullable=is_get_nullable or is_nullable,
-    )
-
-    # reconcile set and get types with the base field class
+    # Get the resolved type args from the Field base class.
+    # Field has 3 type params: _ST (set), _GT (get), _NT (null flag).
+    # With PEP 696 TypeVar defaults, these are already concrete types.
     base_field_type = next(base for base in default_return_type.type.mro if base.fullname == fullnames.FIELD_FULLNAME)
     mapped_instance = map_instance_to_supertype(default_return_type, base_field_type)
-    mapped_set_type, mapped_get_type = tuple(get_proper_type(arg) for arg in mapped_instance.args)
+    mapped_args = [get_proper_type(arg) for arg in mapped_instance.args]
+
+    if len(mapped_args) < 2:
+        return default_return_type
+
+    set_type = mapped_args[0]
+    get_type = mapped_args[1]
 
     # bail if either mapped_set_type or mapped_get_type have type Never
-    if not (isinstance(mapped_set_type, UninhabitedType) or isinstance(mapped_get_type, UninhabitedType)):
-        # always replace set_type and get_type with (non-Any) mapped types
-        set_type = helpers.convert_any_to_type(mapped_set_type, set_type)
-        get_type = get_proper_type(helpers.convert_any_to_type(mapped_get_type, get_type))
+    if isinstance(set_type, UninhabitedType) or isinstance(get_type, UninhabitedType):
+        return default_return_type
 
-        # the get_type must be optional if the field is nullable
-        if (is_get_nullable or is_nullable) and not (
-            isinstance(get_type, NoneType) or helpers.is_optional(get_type) or isinstance(get_type, AnyType)
-        ):
-            ctx.api.fail(
-                f"{default_return_type.type.name} is nullable but its generic get type parameter is not optional",
-                ctx.context,
-            )
+    # Handle extra set nullability not covered by _NT (AutoField, PK with defaults)
+    if is_set_nullable and not isinstance(set_type, AnyType) and not helpers.is_optional(set_type):
+        set_type = helpers.make_optional_type(set_type)
 
-    return default_return_type.copy_modified(args=[set_type, get_type])
+    return default_return_type.copy_modified(args=[set_type, get_type, *mapped_args[2:]])
 
 
 def determine_type_of_array_field(ctx: FunctionContext, django_context: DjangoContext) -> MypyType:
@@ -210,10 +266,10 @@ def determine_type_of_array_field(ctx: FunctionContext, django_context: DjangoCo
 
         return _type
 
-    # Both base_field and return type should derive from Field and thus expect 2 arguments
-    assert len(base_field_arg_type.args) == len(default_return_type.args) == 2
+    # Both base_field and return type should derive from Field — only reconcile the first 2 args (_ST, _GT)
+    assert len(base_field_arg_type.args) >= 2 and len(default_return_type.args) >= 2
     args = []
-    for new_type, default_arg in zip(base_field_arg_type.args, default_return_type.args, strict=False):
+    for new_type, default_arg in zip(base_field_arg_type.args[:2], default_return_type.args[:2], strict=False):
         # Drop any base_field Combinable type
         reduced = drop_combinable(new_type)
         if reduced is None:
@@ -226,7 +282,7 @@ def determine_type_of_array_field(ctx: FunctionContext, django_context: DjangoCo
 
         args.append(helpers.convert_any_to_type(default_arg, new_type))
 
-    return default_return_type.copy_modified(args=args)
+    return default_return_type.copy_modified(args=[*args, *default_return_type.args[2:]])
 
 
 def transform_into_proper_return_type(ctx: FunctionContext, django_context: DjangoContext) -> MypyType:

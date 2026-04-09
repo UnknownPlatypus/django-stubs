@@ -91,8 +91,8 @@ def get_field_type_from_model_type_info(info: TypeInfo | None, field_name: str) 
     field_type = get_proper_type(field_node.type)
     if not isinstance(field_type, Instance):
         return None
-    # Field declares a set and a get type arg. Fallback to `None` when we can't find any args
-    if len(field_type.args) != 2:
+    # Field declares at least a set and a get type arg. Fallback to `None` when we can't find any args
+    if len(field_type.args) < 2:
         return None
     return field_type
 
@@ -218,9 +218,7 @@ class DjangoContext:
                     if gfk_info is None:
                         gfk_set_type: MypyType = AnyType(TypeOfAny.unannotated)
                     else:
-                        gfk_set_type = helpers.get_private_descriptor_type(
-                            gfk_info, "_pyi_private_set_type", is_nullable=True
-                        )
+                        gfk_set_type = helpers.get_field_type_arg(gfk_info, 0, is_nullable=True)
                     expected_types[field_name] = gfk_set_type
                     continue
 
@@ -261,9 +259,7 @@ class DjangoContext:
                         continue
 
                     is_nullable = self.get_field_nullability(field, method)
-                    foreign_key_set_type = helpers.get_private_descriptor_type(
-                        foreign_key_info, "_pyi_private_set_type", is_nullable=is_nullable
-                    )
+                    foreign_key_set_type = helpers.get_field_type_arg(foreign_key_info, 0, is_nullable=is_nullable)
                     model_set_type = helpers.convert_any_to_type(foreign_key_set_type, Instance(related_model_info, []))
 
                     expected_types[field_name] = model_set_type
@@ -324,8 +320,8 @@ class DjangoContext:
         if field_info is None:
             return AnyType(TypeOfAny.from_error)
 
-        field_set_type = helpers.get_private_descriptor_type(
-            field_info, "_pyi_private_set_type", is_nullable=self.get_field_nullability(field, method)
+        field_set_type = helpers.get_field_type_arg(
+            field_info, 0, is_nullable=self.get_field_nullability(field, method)
         )
         if isinstance(target_field, ArrayField):
             argument_field_type = self.get_field_set_type(api, target_field.base_field, method=method)
@@ -364,7 +360,7 @@ class DjangoContext:
                 return AnyType(TypeOfAny.unannotated)
 
             return Instance(model_info, [])
-        return helpers.get_private_descriptor_type(field_info, "_pyi_private_get_type", is_nullable=is_nullable)
+        return helpers.get_field_type_arg(field_info, 1, is_nullable=is_nullable)
 
     def get_field_related_model_cls(self, field: RelatedField[Any, Any] | ForeignObjectRel) -> type[Model]:
         if isinstance(field, RelatedField):
@@ -489,9 +485,7 @@ class DjangoContext:
                     field_info = helpers.lookup_class_typeinfo(helpers.get_typechecker_api(ctx), field.__class__)
                     if field_info is None:
                         return None
-                    return get_proper_type(
-                        helpers.get_private_descriptor_type(field_info, "_pyi_private_get_type", is_nullable=field.null)
-                    )
+                    return get_proper_type(helpers.get_field_type_arg(field_info, 1, is_nullable=field.null))
                 return lookup_type
 
         return None

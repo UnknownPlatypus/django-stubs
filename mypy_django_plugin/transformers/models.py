@@ -33,7 +33,7 @@ from mypy_django_plugin.errorcodes import MANAGER_MISSING
 from mypy_django_plugin.exceptions import UnregisteredModelError
 from mypy_django_plugin.lib import fullnames, helpers
 from mypy_django_plugin.lib.fullnames import ANNOTATIONS_FULLNAME
-from mypy_django_plugin.transformers.fields import FieldDescriptorTypes, get_field_descriptor_types
+from mypy_django_plugin.transformers.fields import FieldDescriptorTypes, get_field_descriptor_types, make_field_args
 from mypy_django_plugin.transformers.managers import (
     MANAGER_METHODS_RETURNING_QUERYSET,
     create_manager_info_from_from_queryset_call,
@@ -296,13 +296,14 @@ class AddDefaultPrimaryKey(ModelClassInitializer):
             auto_field_fullname = helpers.get_class_fullname(auto_field.__class__)
             auto_field_info = self.lookup_typeinfo_or_incomplete_defn_error(auto_field_fullname)
 
-            set_type, get_type = get_field_descriptor_types(
+            args = make_field_args(
                 auto_field_info,
                 is_set_nullable=True,
                 is_get_nullable=False,
+                is_nullable=False,
             )
 
-            self.add_new_var_to_model_class(dest_name, Instance(auto_field_info, [set_type, get_type]))
+            self.add_new_var_to_model_class(dest_name, Instance(auto_field_info, args))
 
 
 class AddPrimaryKeyAlias(AddDefaultPrimaryKey):
@@ -351,10 +352,10 @@ class AddRelatedModelsId(ModelClassInitializer):
                 continue
 
             is_nullable = self.django_context.get_field_nullability(field, None)
-            set_type, get_type = get_field_descriptor_types(
-                field_info, is_set_nullable=is_nullable, is_get_nullable=is_nullable
+            args = make_field_args(
+                field_info, is_set_nullable=is_nullable, is_get_nullable=is_nullable, is_nullable=field.null
             )
-            self.add_new_var_to_model_class(field.attname, Instance(field_info, [set_type, get_type]))
+            self.add_new_var_to_model_class(field.attname, Instance(field_info, args))
 
 
 class AddManagers(ModelClassInitializer):
@@ -770,10 +771,8 @@ class ProcessManyToManyFields(ModelClassInitializer):
         default_pk_field = self.lookup_typeinfo(self.django_context.settings.DEFAULT_AUTO_FIELD)
         if default_pk_field is None:
             raise helpers.IncompleteDefnException()
-        return Instance(
-            default_pk_field,
-            list(get_field_descriptor_types(default_pk_field, is_set_nullable=True, is_get_nullable=False)),
-        )
+        args = make_field_args(default_pk_field, is_set_nullable=True, is_get_nullable=False, is_nullable=False)
+        return Instance(default_pk_field, args)
 
     @cached_property
     def model_pk_instance(self) -> Instance:
