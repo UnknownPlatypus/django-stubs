@@ -82,7 +82,7 @@ _ST_BINARY = TypeVar("_ST_BINARY", contravariant=True, default=bytes | bytearray
 _GT_BINARY = TypeVar("_GT_BINARY", covariant=True, default=bytes | memoryview)
 _ST_DURATION = TypeVar("_ST_DURATION", contravariant=True, default=str | timedelta | Combinable)
 _GT_DURATION = TypeVar("_GT_DURATION", covariant=True, default=timedelta)
-_ST_AUTO = TypeVar("_ST_AUTO", contravariant=True, default=Combinable | int | str)
+_ST_AUTO = TypeVar("_ST_AUTO", contravariant=True, default=Combinable | int | str | None)
 _GT_AUTO = TypeVar("_GT_AUTO", covariant=True, default=int)
 
 class Field(RegisterLookupMixin, Generic[_ST, _GT, _NT]):

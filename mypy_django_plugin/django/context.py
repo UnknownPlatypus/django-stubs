@@ -189,7 +189,18 @@ class DjangoContext:
         field_info = helpers.lookup_class_typeinfo(api, field.__class__)
         if field_info is None:
             return AnyType(TypeOfAny.explicit)
-        return helpers.get_private_descriptor_type(field_info, "_pyi_lookup_exact_type", is_nullable=field.null)
+
+        sym = field_info.get("_pyi_lookup_exact_type")
+        if sym is not None:
+            from mypy.nodes import Var
+
+            node = sym.node
+            if isinstance(node, Var) and node.type is not None:
+                lookup_type: MypyType = node.type
+                if field.null:
+                    lookup_type = make_optional_type(lookup_type)
+                return lookup_type
+        return AnyType(TypeOfAny.explicit)
 
     def get_related_target_field(
         self, related_model_cls: type[Model], field: ForeignKey[Any, Any]
