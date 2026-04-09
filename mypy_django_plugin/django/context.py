@@ -259,6 +259,16 @@ class DjangoContext:
                 field_set_type = _get_field_set_type_from_model_type_info(
                     model_info, field_name
                 ) or self.get_field_set_type(api, field, method=method)
+                # PK fields with defaults should accept None in init/create.
+                # The function hook may not have added None to the set type due to
+                # incremental mode, so we apply it here as well.
+                if (
+                    field.primary_key
+                    and field.has_default()
+                    and method in ("__init__", "create")
+                    and not helpers.is_optional(field_set_type)
+                ):
+                    field_set_type = make_optional_type(field_set_type)
                 expected_types[field_name] = field_set_type
 
                 if isinstance(field, ForeignKey):
