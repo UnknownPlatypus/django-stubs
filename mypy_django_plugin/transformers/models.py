@@ -836,6 +836,26 @@ class ProcessManyToManyFields(ModelClassInitializer):
                     return pk_type
         return self.default_pk_instance
 
+    def _ensure_field_nt_args(self, model_info: TypeInfo) -> None:
+        """Ensure all Field-derived symbols on a through model have the _NT type arg.
+
+        When through models are loaded from cache, their FK fields may have only 2 type args
+        (missing _NT). This method adds the missing Literal[False] arg.
+        """
+        fk_nt_args = make_field_args(self.fk_field, is_set_nullable=False, is_get_nullable=False, is_nullable=False)
+        nt_arg = fk_nt_args[2] if len(fk_nt_args) >= 3 else None
+        if nt_arg is None:
+            return
+        for sym in model_info.names.values():
+            if isinstance(sym.node, Var) and sym.node.type is not None:
+                field_type = get_proper_type(sym.node.type)
+                if (
+                    isinstance(field_type, Instance)
+                    and field_type.type.has_base(fullnames.FIELD_FULLNAME)
+                    and len(field_type.args) == 2
+                ):
+                    sym.node.type = field_type.copy_modified(args=[*field_type.args, nt_arg])
+
     def create_through_table_class(
         self, field_name: str, model_name: str, model_fullname: str, m2m_args: M2MArguments
     ) -> TypeInfo | None:
@@ -848,6 +868,7 @@ class ProcessManyToManyFields(ModelClassInitializer):
         # If through model is already declared there's nothing more we should do
         through_model = self.lookup_typeinfo(model_fullname)
         if through_model is not None:
+            self._ensure_field_nt_args(through_model)
             return through_model
         # Declare a new, empty, implicitly generated through model class named: '<Model>_<field_name>'
         through_model = self.add_new_class_for_current_module(model_name, bases=[Instance(self.model_base, [])])
@@ -865,6 +886,8 @@ class ProcessManyToManyFields(ModelClassInitializer):
         # Add the foreign key to the model containing the 'ManyToManyField' call:
         # <containing_model> or from_<model>
         from_name = f"from_{self.model_classdef.name.lower()}" if m2m_args.to.self else self.model_classdef.name.lower()
+        fk_nt_args = make_field_args(self.fk_field, is_set_nullable=False, is_get_nullable=False, is_nullable=False)
+        fk_nt = fk_nt_args[2:3]  # Get the _NT arg (Literal[False])
         helpers.add_new_sym_for_info(
             through_model,
             name=from_name,
@@ -873,6 +896,7 @@ class ProcessManyToManyFields(ModelClassInitializer):
                 [
                     helpers.convert_any_to_type(self.fk_field_types.set, Instance(self.model_classdef.info, [])),
                     helpers.convert_any_to_type(self.fk_field_types.get, Instance(self.model_classdef.info, [])),
+                    *fk_nt,
                 ],
             ),
         )
@@ -894,6 +918,7 @@ class ProcessManyToManyFields(ModelClassInitializer):
                 [
                     helpers.convert_any_to_type(self.fk_field_types.set, m2m_args.to.model),
                     helpers.convert_any_to_type(self.fk_field_types.get, m2m_args.to.model),
+                    *fk_nt,
                 ],
             ),
         )

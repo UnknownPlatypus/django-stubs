@@ -97,6 +97,7 @@
                       db_table = "auth_user"
 
 -   case: test_relation_specified_by_auth_user_model
+    disable_cache: true
     main: |
         from typing_extensions import reveal_type
         from other.models import Other
