@@ -6,7 +6,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models.fields.related import RelatedField
 from mypy.maptype import map_instance_to_supertype
 from mypy.nodes import AssignmentStmt, NameExpr, TypeInfo
-from mypy.typeops import fill_typevars
+from mypy.typeanal import make_optional_type
 from mypy.types import (
     AnyType,
     Instance,
@@ -19,6 +19,7 @@ from mypy.types import (
     get_proper_type,
 )
 from mypy.types import Type as MypyType
+from mypy.typevars import fill_typevars
 
 from mypy_django_plugin.exceptions import UnregisteredModelError
 from mypy_django_plugin.lib import fullnames, helpers
@@ -159,10 +160,12 @@ def get_field_descriptor_types(
     set_type = _resolve_typevar_defaults(mapped.args[0])
     get_type = _resolve_typevar_defaults(mapped.args[1])
 
-    if is_set_nullable and not isinstance(set_type, AnyType) and not helpers.is_optional(set_type):
-        set_type = helpers.make_optional_type(set_type)
-    if is_get_nullable and not isinstance(get_type, AnyType) and not helpers.is_optional(get_type):
-        get_type = helpers.make_optional_type(get_type)
+    proper_set = get_proper_type(set_type)
+    if is_set_nullable and not isinstance(proper_set, AnyType) and not helpers.is_optional(set_type):
+        set_type = make_optional_type(set_type)
+    proper_get = get_proper_type(get_type)
+    if is_get_nullable and not isinstance(proper_get, AnyType) and not helpers.is_optional(get_type):
+        get_type = make_optional_type(get_type)
 
     return FieldDescriptorTypes(set=set_type, get=get_type)
 
@@ -184,8 +187,9 @@ def make_field_args(
         if len(mapped.args) >= 3:
             nt_type = _resolve_typevar_defaults(mapped.args[2])
             # Override with Literal[True] if the field is nullable
-            if is_nullable and isinstance(nt_type, LiteralType) and nt_type.value is False:
-                nt_type = LiteralType(value=True, fallback=nt_type.fallback)
+            nt_proper = get_proper_type(nt_type)
+            if is_nullable and isinstance(nt_proper, LiteralType) and nt_proper.value is False:
+                nt_type = LiteralType(value=True, fallback=nt_proper.fallback)
             return [descriptor_types.set, descriptor_types.get, nt_type]
     return [descriptor_types.set, descriptor_types.get]
 
@@ -241,20 +245,18 @@ def set_descriptor_types_for_field(
     mapped_get_type = mapped_args[1]
 
     # bail if either mapped type has type Never
-    if isinstance(mapped_set_type, UninhabitedType) or isinstance(mapped_get_type, UninhabitedType):
+    proper_set = get_proper_type(mapped_set_type)
+    proper_get = get_proper_type(mapped_get_type)
+    if isinstance(proper_set, UninhabitedType) or isinstance(proper_get, UninhabitedType):
         return default_return_type
 
     # If the mapped types are top-level Any (unresolved TypeVars), use the TypeVar defaults
     # from get_field_descriptor_types. If they're concrete, use the mapped types directly.
     # We cannot use convert_any_to_type here because types like Sequence[Any] contain
     # Any inside that would get incorrectly replaced.
-    if isinstance(mapped_set_type, AnyType):
-        pass  # Use set_type from get_field_descriptor_types
-    else:
+    if not isinstance(proper_set, AnyType):
         set_type = mapped_set_type
-    if isinstance(mapped_get_type, AnyType):
-        pass  # Use get_type from get_field_descriptor_types
-    else:
+    if not isinstance(proper_get, AnyType):
         get_type = mapped_get_type
 
     # Ensure we always have 3 args. If the default_return_type doesn't have _NT resolved,

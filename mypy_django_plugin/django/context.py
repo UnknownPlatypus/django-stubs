@@ -111,7 +111,7 @@ def _get_field_set_type_from_model_type_info(info: TypeInfo | None, field_name: 
     if field_type is not None:
         set_type: MypyType = field_type.args[0]
         if _is_nullable_field_type(field_type):
-            set_type = helpers.make_optional_type(set_type)
+            set_type = make_optional_type(set_type)
         return set_type
     return None
 
@@ -121,7 +121,7 @@ def _get_field_get_type_from_model_type_info(info: TypeInfo | None, field_name: 
     if field_type is not None:
         get_type: MypyType = field_type.args[1]
         if _is_nullable_field_type(field_type):
-            get_type = helpers.make_optional_type(get_type)
+            get_type = make_optional_type(get_type)
         return get_type
     return None
 
