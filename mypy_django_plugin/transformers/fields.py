@@ -235,10 +235,18 @@ def set_descriptor_types_for_field(
     if isinstance(mapped_set_type, UninhabitedType) or isinstance(mapped_get_type, UninhabitedType):
         return default_return_type
 
-    # Reconcile: if the instance has concrete (non-Any) mapped types (explicit parametrization),
-    # use them; otherwise fall back to TypeVar defaults from get_field_descriptor_types.
-    set_type = helpers.convert_any_to_type(mapped_set_type, set_type)
-    get_type = get_proper_type(helpers.convert_any_to_type(mapped_get_type, get_type))
+    # If the mapped types are top-level Any (unresolved TypeVars), use the TypeVar defaults
+    # from get_field_descriptor_types. If they're concrete, use the mapped types directly.
+    # We cannot use convert_any_to_type here because types like Sequence[Any] contain
+    # Any inside that would get incorrectly replaced.
+    if isinstance(mapped_set_type, AnyType):
+        pass  # Use set_type from get_field_descriptor_types
+    else:
+        set_type = mapped_set_type
+    if isinstance(mapped_get_type, AnyType):
+        pass  # Use get_type from get_field_descriptor_types
+    else:
+        get_type = mapped_get_type
 
     # Ensure we always have 3 args. If the default_return_type doesn't have _NT resolved,
     # use the default from the TypeVar (Literal[False]).
