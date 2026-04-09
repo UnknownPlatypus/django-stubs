@@ -865,13 +865,21 @@ class ProcessManyToManyFields(ModelClassInitializer):
             # Call has explicit 'through=', no need to create any implicit through table
             return m2m_args.through.model.type if isinstance(m2m_args.through.model, Instance) else None
 
-        # If through model is already declared there's nothing more we should do
+        # If through model is already declared, check if it has FK fields.
+        # On early iterations it may have been created empty (before model resolution completed).
         through_model = self.lookup_typeinfo(model_fullname)
         if through_model is not None:
-            self._ensure_field_nt_args(through_model)
-            return through_model
-        # Declare a new, empty, implicitly generated through model class named: '<Model>_<field_name>'
-        through_model = self.add_new_class_for_current_module(model_name, bases=[Instance(self.model_base, [])])
+            to_name = (
+                f"to_{m2m_args.to.model.type.name.lower()}" if m2m_args.to.self else m2m_args.to.model.type.name.lower()
+            )
+            if through_model.get(to_name) is not None:
+                # Through model already has FK fields — just ensure _NT type args
+                self._ensure_field_nt_args(through_model)
+                return through_model
+            # Through model exists but lacks FK fields — fall through to re-add them
+        if through_model is None:
+            # Declare a new, empty, implicitly generated through model class named: '<Model>_<field_name>'
+            through_model = self.add_new_class_for_current_module(model_name, bases=[Instance(self.model_base, [])])
         # We attempt to be a bit clever here and store the generated through model's fullname in
         # the metadata of the class containing the 'ManyToManyField' call expression, where its
         # identifier is the field name of the 'ManyToManyField'. This would allow the containing
