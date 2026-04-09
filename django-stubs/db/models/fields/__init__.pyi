@@ -89,55 +89,31 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT, _NT]):
     """
     Typing model fields.
 
-    How does this work?
-    Let's take a look at the self-contained example
-    (it is way easier than our django implementation, but has the same concept).
+    ``Field`` is generic over three type parameters (using PEP 696 TypeVar defaults):
 
-    To understand this example you need:
-    1. Be familiar with descriptors: https://docs.python.org/3/howto/descriptor.html
-    2. Follow our explanation below
+    - ``_ST``: the **set** type — what values can be assigned to the field (contravariant)
+    - ``_GT``: the **get** type — what type is returned when accessing the field (covariant)
+    - ``_NT``: the **null flag** — ``Literal[True]`` or ``Literal[False]`` (defaults to ``Literal[False]``)
 
-    Let's start with defining our fake model class and fake integer field.
+    The ``_NT`` parameter is inferred from the ``null=`` keyword argument:
 
-    .. code:: python
+    - ``null=False`` (default): ``__get__`` returns ``_GT``, ``__set__`` accepts ``_ST``
+    - ``null=True``: ``__get__`` returns ``_GT | None``, ``__set__`` accepts ``_ST | None``
 
-        from typing import Generic
+    Each built-in field subclass defines its own TypeVar defaults for ``_ST`` and ``_GT``.
+    For example, ``IntegerField`` defaults to ``_ST=float | int | str | Combinable``
+    and ``_GT=int``.
 
-        class Model(object):
-            ...
+    Custom field subclasses should pass ``_NT`` through to ``Field`` to support ``null=True``::
 
-        _SetType = int | float  # You can assign ints and floats
-        _GetType = int  # access type is always `int`
+        from typing import Literal
+        from typing_extensions import TypeVar
 
-        class IntField(object):
-            def __get__(self, instance: Model, owner) -> _GetType:
-                ...
+        _ST = TypeVar("_ST", contravariant=True)
+        _GT = TypeVar("_GT", covariant=True)
+        _NT = TypeVar("_NT", Literal[True], Literal[False], default=Literal[False])
 
-            def __set__(self, instance, value: _SetType) -> None:
-                ...
-
-    Now, let's create our own example model,
-    this would be something like ``User`` in your own apps:
-
-    .. code:: python
-
-        class Example(Model):
-            count = IntField()
-
-    And now, lets test that our reveal type works:
-
-    .. code:: python
-
-        example = Example()
-        reveal_type(example.count)
-        # Revealed type is "int"
-
-        example.count = 1.5  # ok
-        example.count = 'a'
-        # Incompatible types in assignment
-        # (expression has type "str", variable has type "int | float")
-
-    Notice, that this is not magic. This is how descriptors work with ``mypy``.
+        class MyField(Field[_ST, _GT, _NT]): ...
 
     We also need ``_pyi_lookup_exact_type``
     to help inside our plugin.

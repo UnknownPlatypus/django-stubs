@@ -425,9 +425,12 @@ Use this setting on your own risk, because it can hide valid errors.
 > This require type generic support, see <a href="#i-cannot-use-queryset-or-manager-with-type-annotations">this section</a> to enable it.
 
 
-Django `models.Field` (and subclasses) are generic types with two parameters:
-- `_ST`: type that can be used when setting a value
-- `_GT`: type that will be returned when getting a value
+Django `models.Field` (and subclasses) are generic types with three type parameters ([PEP 696](https://peps.python.org/pep-0696/) TypeVar defaults):
+- `_ST`: type that can be used when setting a value (contravariant)
+- `_GT`: type that will be returned when getting a value (covariant)
+- `_NT`: null flag — `Literal[True]` or `Literal[False]` (defaults to `Literal[False]`)
+
+The `_NT` parameter is automatically inferred from the `null=` keyword argument. When `null=True`, the `__get__` descriptor returns `_GT | None` and `__set__` accepts `_ST | None`. Each built-in field defines its own TypeVar defaults for `_ST` and `_GT` (e.g., `IntegerField` defaults to `_ST=float | int | str | Combinable` and `_GT=int`).
 
 When you create a subclass, you have two options depending on how strict you want
 the type to be for consumers of your custom field.
@@ -435,32 +438,43 @@ the type to be for consumers of your custom field.
 1. Generic subclass:
 
 ```python
-from typing import TypeVar, reveal_type
+from typing import Literal
+from typing_extensions import TypeVar, reveal_type
 from django.db import models
 
 _ST = TypeVar("_ST", contravariant=True)
 _GT = TypeVar("_GT", covariant=True)
+_NT = TypeVar("_NT", Literal[True], Literal[False], default=Literal[False])
 
-class MyIntegerField(models.IntegerField[_ST, _GT]):
+class MyIntegerField(models.IntegerField[_ST, _GT, _NT]):
     ...
 
 class User(models.Model):
     my_field = MyIntegerField()
+    my_nullable_field = MyIntegerField(null=True)
 
 
 reveal_type(User().my_field) # N: Revealed type is "int"
+reveal_type(User().my_nullable_field) # N: Revealed type is "int | None"
 User().my_field = "12"  # OK (because Django IntegerField allows str and will try to coerce it)
 ```
+
+> [!IMPORTANT]
+> You must pass `_NT` through to `Field` for `null=True` to work correctly on your custom field.
+> Without it, `_NT` defaults to `Literal[False]` and `null=True` will be rejected by the type checker.
 
 2. Non-generic subclass (more strict):
 
 ```python
-from typing import reveal_type
+from typing import Literal, reveal_type
+from typing_extensions import TypeVar
 from django.db import models
+
+_NT = TypeVar("_NT", Literal[True], Literal[False], default=Literal[False])
 
 # This is a non-generic subclass being very explicit
 # that it expects only int when setting values.
-class MyStrictIntegerField(models.IntegerField[int, int]):
+class MyStrictIntegerField(models.IntegerField[int, int, _NT]):
     ...
 
 class User(models.Model):
