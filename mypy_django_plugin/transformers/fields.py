@@ -62,6 +62,8 @@ def _get_current_field_from_assignment(
 
 
 def reparametrize_related_field_type(related_field_type: Instance, set_type: MypyType, get_type: MypyType) -> Instance:
+    if len(related_field_type.args) < 2:
+        return related_field_type
     args = [
         helpers.convert_any_to_type(related_field_type.args[0], set_type),
         helpers.convert_any_to_type(related_field_type.args[1], get_type),
