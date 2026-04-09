@@ -136,10 +136,12 @@ class FieldDescriptorTypes(NamedTuple):
 
 
 def _resolve_typevar_defaults(typ: MypyType) -> MypyType:
-    """Resolve TypeVar defaults to their concrete types."""
+    """Resolve TypeVar defaults to their concrete types, or Any if no default."""
     typ = get_proper_type(typ)
-    if isinstance(typ, TypeVarType) and typ.has_default():
-        return get_proper_type(typ.default)
+    if isinstance(typ, TypeVarType):
+        if typ.has_default():
+            return get_proper_type(typ.default)
+        return AnyType(TypeOfAny.explicit)
     return typ
 
 
