@@ -38,6 +38,7 @@ from mypy_django_plugin.transformers import (
     settings,
 )
 from mypy_django_plugin.transformers.auth import get_user_model
+from mypy_django_plugin.transformers.formsets import FACTORY_TO_BASE, create_new_formset_class
 from mypy_django_plugin.transformers.functional import resolve_str_promise_attribute
 from mypy_django_plugin.transformers.managers import (
     add_as_manager_to_queryset_class,
@@ -325,6 +326,11 @@ class NewSemanalDjangoPlugin(Plugin):
             info = self._get_typeinfo_or_none(class_name)
             if info and info.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME):
                 return create_new_manager_class_from_from_queryset_method
+
+        # Create a new formset class when a formset factory function is called
+        if fullname in FACTORY_TO_BASE:
+            return create_new_formset_class
+
         return None
 
     @override
