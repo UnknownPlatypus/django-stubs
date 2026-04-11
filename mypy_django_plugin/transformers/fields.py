@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models.fields import AutoField, Field
 from django.db.models.fields.related import RelatedField
 from mypy.maptype import map_instance_to_supertype
 from mypy.nodes import AssignmentStmt, NameExpr, TypeInfo
+from mypy.typeanal import make_optional_type
 from mypy.types import AnyType, Instance, NoneType, ProperType, TypeOfAny, UninhabitedType, UnionType, get_proper_type
 from mypy.types import Type as MypyType
 
@@ -109,23 +110,27 @@ def fill_descriptor_types_for_related_field(ctx: FunctionContext, django_context
     else:
         related_model_to_set_type = Instance(related_model_to_set_info, [])
 
+    is_nullable = helpers.get_bool_call_argument_by_name(ctx, "null", default=False)
+
+    set_type: MypyType = related_model_to_set_type
+    get_type: MypyType = related_model_type
+    if is_nullable:
+        set_type = make_optional_type(set_type)
+        get_type = make_optional_type(get_type)
+
     # replace Any with referred_to_type
-    return reparametrize_related_field_type(
-        default_related_field_type, set_type=related_model_to_set_type, get_type=related_model_type
-    )
+    return reparametrize_related_field_type(default_related_field_type, set_type=set_type, get_type=get_type)
 
 
-class FieldDescriptorTypes(NamedTuple):
-    set: MypyType
-    get: MypyType
-
-
-def get_field_descriptor_types(
-    field_info: TypeInfo, *, is_set_nullable: bool, is_get_nullable: bool
-) -> FieldDescriptorTypes:
-    set_type = helpers.get_private_descriptor_type(field_info, "_pyi_private_set_type", is_nullable=is_set_nullable)
-    get_type = helpers.get_private_descriptor_type(field_info, "_pyi_private_get_type", is_nullable=is_get_nullable)
-    return FieldDescriptorTypes(set=set_type, get=get_type)
+def fill_field_defaults(field_info: TypeInfo) -> Instance:
+    """Create an Instance of a Field subclass with PEP 696 TypeVar defaults filled in."""
+    args: list[MypyType] = []
+    for tv in field_info.defn.type_vars:
+        if tv.has_default():
+            args.append(tv.default)
+        else:
+            args.append(AnyType(TypeOfAny.special_form))
+    return Instance(field_info, args)
 
 
 def set_descriptor_types_for_field_callback(ctx: FunctionContext, django_context: DjangoContext) -> MypyType:
@@ -144,36 +149,43 @@ def set_descriptor_types_for_field(
 
     is_nullable = helpers.get_bool_call_argument_by_name(ctx, "null", default=False)
     is_primary_key = helpers.get_bool_call_argument_by_name(ctx, "primary_key", default=False)
-    # Allow setting field value to `None` when a field is primary key and has a default that can produce a value
     default_expr = helpers.get_call_argument_by_name(ctx, "default")
     if default_expr is not None:
         is_set_nullable = is_primary_key
 
-    set_type, get_type = get_field_descriptor_types(
-        default_return_type.type,
-        is_set_nullable=is_set_nullable or is_nullable,
-        is_get_nullable=is_get_nullable or is_nullable,
-    )
-
-    # reconcile set and get types with the base field class
+    # Get the TypeVar defaults as the baseline types (without nullable wrapping)
+    defaults_instance = fill_field_defaults(default_return_type.type)
     base_field_type = next(base for base in default_return_type.type.mro if base.fullname == fullnames.FIELD_FULLNAME)
+    default_mapped = map_instance_to_supertype(defaults_instance, base_field_type)
+    set_type: MypyType = get_proper_type(default_mapped.args[0])
+    get_type: MypyType = get_proper_type(default_mapped.args[1])
+
+    # Reconcile with the actual mapped types (from explicit type args or TypeVar defaults)
     mapped_instance = map_instance_to_supertype(default_return_type, base_field_type)
     mapped_set_type, mapped_get_type = tuple(get_proper_type(arg) for arg in mapped_instance.args)
 
-    # bail if either mapped_set_type or mapped_get_type have type Never
     if not (isinstance(mapped_set_type, UninhabitedType) or isinstance(mapped_get_type, UninhabitedType)):
-        # always replace set_type and get_type with (non-Any) mapped types
-        set_type = helpers.convert_any_to_type(mapped_set_type, set_type)
-        get_type = get_proper_type(helpers.convert_any_to_type(mapped_get_type, get_type))
+        if mapped_set_type != set_type:
+            set_type = helpers.convert_any_to_type(mapped_set_type, set_type)
+        if mapped_get_type != get_type:
+            get_type = get_proper_type(helpers.convert_any_to_type(mapped_get_type, get_type))
 
-        # the get_type must be optional if the field is nullable
-        if (is_get_nullable or is_nullable) and not (
-            isinstance(get_type, NoneType) or helpers.is_optional(get_type) or isinstance(get_type, AnyType)
-        ):
-            ctx.api.fail(
-                f"{default_return_type.type.name} is nullable but its generic get type parameter is not optional",
-                ctx.context,
-            )
+        has_typevar_defaults = any(tv.has_default() for tv in default_return_type.type.defn.type_vars)
+
+        if is_set_nullable or is_nullable:
+            if has_typevar_defaults:
+                set_type = make_optional_type(set_type)
+        if is_get_nullable or is_nullable:
+            if isinstance(get_type, NoneType) or helpers.is_optional(get_type) or isinstance(get_type, AnyType):
+                pass
+            elif has_typevar_defaults and mapped_get_type == get_proper_type(default_mapped.args[1]):
+                set_type = make_optional_type(set_type)
+                get_type = make_optional_type(get_type)
+            else:
+                ctx.api.fail(
+                    f"{default_return_type.type.name} is nullable but its generic get type parameter is not optional",
+                    ctx.context,
+                )
 
     return default_return_type.copy_modified(args=[set_type, get_type])
 

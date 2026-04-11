@@ -73,7 +73,7 @@
 
                 from django.db import models
 
-                class JSONField(models.TextField): pass  # incomplete
+                class JSONField(models.Field): pass  # incomplete
 
                 class Base(models.Model):
                     dct: models.Field[dict[str, str], dict[str, str]] = JSONField()
@@ -86,8 +86,8 @@
         from myapp.models import Publisher, Book
 
         Book.objects.create(id=None)  # E: Incompatible type for "id" of "Book" (got "None", expected "float | int | str | Combinable")  [misc]
-        Book.objects.create(publisher=None)  # E: Incompatible type for "publisher" of "Book" (got "None", expected "Publisher | Combinable")  [misc]
-        Book.objects.create(publisher_id=None)  # E: Incompatible type for "publisher_id" of "Book" (got "None", expected "float | int | str | Combinable")  [misc]
+        Book.objects.create(publisher=None)  # E: Incompatible type for "publisher" of "Book" (got "None", expected "Publisher")  [misc]
+        Book.objects.create(publisher_id=None)  # OK: publisher_id type includes None (AutoField default)
     installed_apps:
         - myapp
     files:

@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Sequence
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar
 
 from _typeshed import Unused
 from django.contrib.postgres.utils import CheckPostgresInstalledMixin
@@ -13,17 +13,12 @@ from django.db.models.fields.mixins import CheckFieldDefaultMixin
 from django.db.models.lookups import Transform
 from django.utils.choices import _Choices
 from django.utils.functional import _StrOrPromise
-from typing_extensions import override
+from typing_extensions import TypeVar, override
 
-# __set__ value type
-_ST = TypeVar("_ST")
-# __get__ return type
-_GT = TypeVar("_GT")
+_ST_ARRAY = TypeVar("_ST_ARRAY", contravariant=True, default=Sequence[Any] | Combinable)
+_GT_ARRAY = TypeVar("_GT_ARRAY", covariant=True, default=list[Any])
 
-class ArrayField(CheckPostgresInstalledMixin, CheckFieldDefaultMixin, Field[_ST, _GT]):
-    _pyi_private_set_type: Sequence[Any] | Combinable
-    _pyi_private_get_type: list[Any]
-
+class ArrayField(CheckPostgresInstalledMixin, CheckFieldDefaultMixin, Field[_ST_ARRAY, _GT_ARRAY]):
     empty_strings_allowed: bool
     default_error_messages: ClassVar[_ErrorMessagesDict]
     base_field: Field
@@ -44,7 +39,7 @@ class ArrayField(CheckPostgresInstalledMixin, CheckFieldDefaultMixin, Field[_ST,
         null: bool = ...,
         db_index: bool = ...,
         default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
+        db_default: type[NOT_PROVIDED] | Expression | _ST_ARRAY = ...,
         editable: bool = ...,
         auto_created: bool = ...,
         serialize: bool = ...,

@@ -23,8 +23,8 @@
         reveal_type(MyUser.name.field)  # N: Revealed type is "django.db.models.fields.CharField[str | int | django.db.models.expressions.Combinable, str]"
         reveal_type(MyUser._meta.get_field('age'))  # N: Revealed type is "django.db.models.fields.IntegerField[float | int | str | django.db.models.expressions.Combinable, int]"
         reveal_type(MyUser.age.field)  # N: Revealed type is "django.db.models.fields.IntegerField[float | int | str | django.db.models.expressions.Combinable, int]"
-        reveal_type(MyUser._meta.get_field('to_user'))  # N: Revealed type is "django.db.models.fields.related.ForeignKey[myapp.models.MyUser | django.db.models.expressions.Combinable, myapp.models.MyUser]"
-        reveal_type(MyUser.to_user.field)  # N: Revealed type is "django.db.models.fields.related.ForeignKey[myapp.models.MyUser | django.db.models.expressions.Combinable, myapp.models.MyUser]"
+        reveal_type(MyUser._meta.get_field('to_user'))  # N: Revealed type is "django.db.models.fields.related.ForeignKey[myapp.models.MyUser, myapp.models.MyUser]"
+        reveal_type(MyUser.to_user.field)  # N: Revealed type is "django.db.models.fields.related.ForeignKey[myapp.models.MyUser, myapp.models.MyUser]"
 
         MyUser._meta.get_field('unknown')  # E: MyUser has no field named 'unknown'  [misc]
     installed_apps:

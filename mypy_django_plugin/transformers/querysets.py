@@ -271,7 +271,9 @@ def _resolve_output_field_type(expr_type: MypyType) -> MypyType | None:
     if not isinstance(field_type, Instance):
         return None
 
-    return helpers.get_private_descriptor_type(field_type.type, "_pyi_private_get_type", is_nullable=False)
+    from mypy_django_plugin.transformers.fields import fill_field_defaults
+
+    return fill_field_defaults(field_type.type).args[1]
 
 
 def gather_expression_types(ctx: MethodContext) -> dict[str, MypyType]:

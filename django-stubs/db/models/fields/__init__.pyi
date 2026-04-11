@@ -3,7 +3,7 @@ import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date, time, timedelta
 from datetime import datetime as real_datetime
-from typing import Any, ClassVar, Generic, Literal, Protocol, TypeAlias, TypeVar, overload, type_check_only
+from typing import Any, ClassVar, Generic, Literal, Protocol, TypeAlias, overload, type_check_only
 
 from django import forms
 from django.core import validators  # due to weird mypy.stubtest error
@@ -18,7 +18,7 @@ from django.db.models.sql.compiler import SQLCompiler, _AsSqlType, _ParamsT
 from django.utils.choices import BlankChoiceIterator, _Choice, _ChoiceNamedGroup, _ChoicesCallable, _ChoicesInput
 from django.utils.datastructures import DictWrapper
 from django.utils.functional import _Getter, _StrOrPromise, cached_property
-from typing_extensions import Self, override
+from typing_extensions import Self, TypeVar, override
 
 class Empty: ...
 class NOT_PROVIDED: ...
@@ -29,7 +29,7 @@ _ChoicesList: TypeAlias = Sequence[_Choice] | Sequence[_ChoiceNamedGroup]
 _LimitChoicesTo: TypeAlias = Q | dict[str, Any]
 _LimitChoicesToCallable: TypeAlias = Callable[[], _LimitChoicesTo]
 
-_F = TypeVar("_F", bound=Field, covariant=True)
+_F = TypeVar("_F", bound=Field[Any, Any], covariant=True)
 
 @type_check_only
 class _FieldDescriptor(Protocol[_F]):
@@ -49,6 +49,39 @@ _ErrorMessagesDict: TypeAlias = dict[str, _StrOrPromise]
 _ST = TypeVar("_ST", contravariant=True)
 # __get__ return type
 _GT = TypeVar("_GT", covariant=True)
+
+_ST_INT = TypeVar("_ST_INT", contravariant=True, default=float | int | str | Combinable)
+_GT_INT = TypeVar("_GT_INT", covariant=True, default=int)
+_ST_FLOAT = TypeVar("_ST_FLOAT", contravariant=True, default=float | int | str | Combinable)
+_GT_FLOAT = TypeVar("_GT_FLOAT", covariant=True, default=float)
+_ST_DECIMAL = TypeVar("_ST_DECIMAL", contravariant=True, default=str | float | decimal.Decimal | Combinable)
+_GT_DECIMAL = TypeVar("_GT_DECIMAL", covariant=True, default=decimal.Decimal)
+_ST_CHAR = TypeVar("_ST_CHAR", contravariant=True, default=str | int | Combinable)
+_GT_CHAR = TypeVar("_GT_CHAR", covariant=True, default=str)
+_ST_EMAIL = TypeVar("_ST_EMAIL", contravariant=True, default=str | Combinable)
+_ST_TEXT = TypeVar("_ST_TEXT", contravariant=True, default=str | Combinable)
+_GT_TEXT = TypeVar("_GT_TEXT", covariant=True, default=str)
+_ST_BOOL = TypeVar("_ST_BOOL", contravariant=True, default=bool | Combinable)
+_GT_BOOL = TypeVar("_GT_BOOL", covariant=True, default=bool)
+_ST_NBOOL = TypeVar("_ST_NBOOL", contravariant=True, default=bool | Combinable | None)
+_GT_NBOOL = TypeVar("_GT_NBOOL", covariant=True, default=bool | None)
+_ST_IP = TypeVar("_ST_IP", contravariant=True, default=str | Combinable)
+_GT_IP = TypeVar("_GT_IP", covariant=True, default=str)
+_ST_GENIP = TypeVar("_ST_GENIP", contravariant=True, default=str | int | Callable[..., Any] | Combinable)
+_ST_DATE = TypeVar("_ST_DATE", contravariant=True, default=str | date | Combinable)
+_GT_DATE = TypeVar("_GT_DATE", covariant=True, default=date)
+_ST_TIME = TypeVar("_ST_TIME", contravariant=True, default=str | time | real_datetime | Combinable)
+_GT_TIME = TypeVar("_GT_TIME", covariant=True, default=time)
+_ST_DATETIME = TypeVar("_ST_DATETIME", contravariant=True, default=str | real_datetime | date | Combinable)
+_GT_DATETIME = TypeVar("_GT_DATETIME", covariant=True, default=real_datetime)
+_ST_UUID = TypeVar("_ST_UUID", contravariant=True, default=str | uuid.UUID)
+_GT_UUID = TypeVar("_GT_UUID", covariant=True, default=uuid.UUID)
+_ST_BINARY = TypeVar("_ST_BINARY", contravariant=True, default=bytes | bytearray | memoryview | Combinable)
+_GT_BINARY = TypeVar("_GT_BINARY", covariant=True, default=bytes | memoryview)
+_ST_DURATION = TypeVar("_ST_DURATION", contravariant=True, default=str | timedelta | Combinable)
+_GT_DURATION = TypeVar("_GT_DURATION", covariant=True, default=timedelta)
+_ST_AUTO = TypeVar("_ST_AUTO", contravariant=True, default=Combinable | int | str | None)
+_GT_AUTO = TypeVar("_GT_AUTO", covariant=True, default=int)
 
 class Field(RegisterLookupMixin, Generic[_ST, _GT]):
     """
@@ -104,13 +137,10 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
 
     Notice, that this is not magic. This is how descriptors work with ``mypy``.
 
-    We also need ``_pyi_private_set_type`` attributes
-    and friends to help inside our plugin.
+    We also need ``_pyi_lookup_exact_type`` to help inside our plugin.
     It is required to enhance parts like ``filter`` queries.
     """
 
-    _pyi_private_set_type: Any
-    _pyi_private_get_type: Any
     _pyi_lookup_exact_type: Any
 
     help_text: _StrOrPromise
@@ -257,9 +287,7 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
     def value_from_object(self, obj: Model) -> _GT: ...
     def slice_expression(self, expression: Expression, start: int, length: int | None) -> Func: ...
 
-class IntegerField(Field[_ST, _GT]):
-    _pyi_private_set_type: float | int | str | Combinable
-    _pyi_private_get_type: int
+class IntegerField(Field[_ST_INT, _GT_INT]):
     _pyi_lookup_exact_type: str | int
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
@@ -267,38 +295,34 @@ class IntegerField(Field[_ST, _GT]):
 class PositiveIntegerRelDbTypeMixin:
     def rel_db_type(self, connection: BaseDatabaseWrapper) -> str: ...
 
-class SmallIntegerField(IntegerField[_ST, _GT]): ...
+class SmallIntegerField(IntegerField[_ST_INT, _GT_INT]): ...
 
-class BigIntegerField(IntegerField[_ST, _GT]):
+class BigIntegerField(IntegerField[_ST_INT, _GT_INT]):
     MAX_BIGINT: ClassVar[int]
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class PositiveIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField[_ST, _GT]):
+class PositiveIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField[_ST_INT, _GT_INT]):
     integer_field_class: type[IntegerField]
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class PositiveSmallIntegerField(PositiveIntegerRelDbTypeMixin, SmallIntegerField[_ST, _GT]):
+class PositiveSmallIntegerField(PositiveIntegerRelDbTypeMixin, SmallIntegerField[_ST_INT, _GT_INT]):
     integer_field_class: type[SmallIntegerField]
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class PositiveBigIntegerField(PositiveIntegerRelDbTypeMixin, BigIntegerField[_ST, _GT]):
+class PositiveBigIntegerField(PositiveIntegerRelDbTypeMixin, BigIntegerField[_ST_INT, _GT_INT]):
     integer_field_class: type[BigIntegerField]
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class FloatField(Field[_ST, _GT]):
-    _pyi_private_set_type: float | int | str | Combinable
-    _pyi_private_get_type: float
+class FloatField(Field[_ST_FLOAT, _GT_FLOAT]):
     _pyi_lookup_exact_type: float
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class DecimalField(Field[_ST, _GT]):
-    _pyi_private_set_type: str | float | decimal.Decimal | Combinable
-    _pyi_private_get_type: decimal.Decimal
+class DecimalField(Field[_ST_DECIMAL, _GT_DECIMAL]):
     _pyi_lookup_exact_type: str | int | decimal.Decimal
     # attributes
     max_digits: int
@@ -316,7 +340,7 @@ class DecimalField(Field[_ST, _GT]):
         null: bool = ...,
         db_index: bool = ...,
         default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
+        db_default: type[NOT_PROVIDED] | Expression | _ST_DECIMAL = ...,
         editable: bool = ...,
         auto_created: bool = ...,
         serialize: bool = ...,
@@ -333,9 +357,7 @@ class DecimalField(Field[_ST, _GT]):
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class CharField(Field[_ST, _GT]):
-    _pyi_private_set_type: str | int | Combinable
-    _pyi_private_get_type: str
+class CharField(Field[_ST_CHAR, _GT_CHAR]):
     # objects are converted to string before comparison
     _pyi_lookup_exact_type: Any
     def __init__(
@@ -349,7 +371,7 @@ class CharField(Field[_ST, _GT]):
         null: bool = ...,
         db_index: bool = ...,
         default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
+        db_default: type[NOT_PROVIDED] | Expression | _ST_CHAR = ...,
         editable: bool = ...,
         auto_created: bool = ...,
         serialize: bool = ...,
@@ -369,9 +391,9 @@ class CharField(Field[_ST, _GT]):
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class CommaSeparatedIntegerField(CharField[_ST, _GT]): ...
+class CommaSeparatedIntegerField(CharField[_ST_CHAR, _GT_CHAR]): ...
 
-class SlugField(CharField[_ST, _GT]):
+class SlugField(CharField[_ST_CHAR, _GT_CHAR]):
     def __init__(
         self,
         verbose_name: _StrOrPromise | None = ...,
@@ -381,7 +403,7 @@ class SlugField(CharField[_ST, _GT]):
         blank: bool = ...,
         null: bool = ...,
         default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
+        db_default: type[NOT_PROVIDED] | Expression | _ST_CHAR = ...,
         editable: bool = ...,
         auto_created: bool = ...,
         serialize: bool = ...,
@@ -403,12 +425,11 @@ class SlugField(CharField[_ST, _GT]):
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class EmailField(CharField[_ST, _GT]):
-    _pyi_private_set_type: str | Combinable
+class EmailField(CharField[_ST_EMAIL, _GT_CHAR]):
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class URLField(CharField[_ST, _GT]):
+class URLField(CharField[_ST_CHAR, _GT_CHAR]):
     def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
@@ -422,7 +443,7 @@ class URLField(CharField[_ST, _GT]):
         db_index: bool = ...,
         rel: ForeignObjectRel | None = ...,
         default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
+        db_default: type[NOT_PROVIDED] | Expression | _ST_CHAR = ...,
         editable: bool = ...,
         serialize: bool = ...,
         unique_for_date: str | None = ...,
@@ -440,9 +461,7 @@ class URLField(CharField[_ST, _GT]):
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class TextField(Field[_ST, _GT]):
-    _pyi_private_set_type: str | Combinable
-    _pyi_private_get_type: str
+class TextField(Field[_ST_TEXT, _GT_TEXT]):
     # objects are converted to string before comparison
     _pyi_lookup_exact_type: Any
     def __init__(
@@ -456,7 +475,7 @@ class TextField(Field[_ST, _GT]):
         null: bool = ...,
         db_index: bool = ...,
         default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
+        db_default: type[NOT_PROVIDED] | Expression | _ST_TEXT = ...,
         editable: bool = ...,
         auto_created: bool = ...,
         serialize: bool = ...,
@@ -476,26 +495,17 @@ class TextField(Field[_ST, _GT]):
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class BooleanField(Field[_ST, _GT]):
-    _pyi_private_set_type: bool | Combinable
-    _pyi_private_get_type: bool
+class BooleanField(Field[_ST_BOOL, _GT_BOOL]):
     _pyi_lookup_exact_type: bool
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class NullBooleanField(BooleanField[_ST, _GT]):
-    _pyi_private_set_type: bool | Combinable | None  # type: ignore[assignment]
-    _pyi_private_get_type: bool | None  # type: ignore[assignment]
+class NullBooleanField(BooleanField[_ST_NBOOL, _GT_NBOOL]):
     _pyi_lookup_exact_type: bool | None  # type: ignore[assignment]
 
-class IPAddressField(Field[_ST, _GT]):
-    _pyi_private_set_type: str | Combinable
-    _pyi_private_get_type: str
+class IPAddressField(Field[_ST_IP, _GT_IP]): ...
 
-class GenericIPAddressField(Field[_ST, _GT]):
-    _pyi_private_set_type: str | int | Callable[..., Any] | Combinable
-    _pyi_private_get_type: str
-
+class GenericIPAddressField(Field[_ST_GENIP, _GT_IP]):
     default_error_messages: ClassVar[_ErrorMessagesDict]
     unpack_ipv4: bool
     protocol: str
@@ -511,7 +521,7 @@ class GenericIPAddressField(Field[_ST, _GT]):
         null: bool = ...,
         db_index: bool = ...,
         default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
+        db_default: type[NOT_PROVIDED] | Expression | _ST_GENIP = ...,
         editable: bool = ...,
         auto_created: bool = ...,
         serialize: bool = ...,
@@ -529,9 +539,7 @@ class GenericIPAddressField(Field[_ST, _GT]):
 class DateTimeCheckMixin:
     def check(self, **kwargs: Any) -> list[CheckMessage]: ...
 
-class DateField(DateTimeCheckMixin, Field[_ST, _GT]):
-    _pyi_private_set_type: str | date | Combinable
-    _pyi_private_get_type: date
+class DateField(DateTimeCheckMixin, Field[_ST_DATE, _GT_DATE]):
     _pyi_lookup_exact_type: str | date
     auto_now: bool
     auto_now_add: bool
@@ -549,7 +557,7 @@ class DateField(DateTimeCheckMixin, Field[_ST, _GT]):
         null: bool = ...,
         db_index: bool = ...,
         default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
+        db_default: type[NOT_PROVIDED] | Expression | _ST_DATE = ...,
         editable: bool = ...,
         auto_created: bool = ...,
         serialize: bool = ...,
@@ -566,9 +574,7 @@ class DateField(DateTimeCheckMixin, Field[_ST, _GT]):
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class TimeField(DateTimeCheckMixin, Field[_ST, _GT]):
-    _pyi_private_set_type: str | time | real_datetime | Combinable
-    _pyi_private_get_type: time
+class TimeField(DateTimeCheckMixin, Field[_ST_TIME, _GT_TIME]):
     auto_now: bool
     auto_now_add: bool
     def __init__(
@@ -584,7 +590,7 @@ class TimeField(DateTimeCheckMixin, Field[_ST, _GT]):
         null: bool = ...,
         db_index: bool = ...,
         default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
+        db_default: type[NOT_PROVIDED] | Expression | _ST_TIME = ...,
         editable: bool = ...,
         auto_created: bool = ...,
         serialize: bool = ...,
@@ -599,16 +605,12 @@ class TimeField(DateTimeCheckMixin, Field[_ST, _GT]):
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class DateTimeField(DateField[_ST, _GT]):
-    _pyi_private_set_type: str | real_datetime | date | Combinable
-    _pyi_private_get_type: real_datetime
+class DateTimeField(DateField[_ST_DATETIME, _GT_DATETIME]):
     _pyi_lookup_exact_type: str | real_datetime
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class UUIDField(Field[_ST, _GT]):
-    _pyi_private_set_type: str | uuid.UUID
-    _pyi_private_get_type: uuid.UUID
+class UUIDField(Field[_ST_UUID, _GT_UUID]):
     _pyi_lookup_exact_type: uuid.UUID | str
     def __init__(
         self,
@@ -623,7 +625,7 @@ class UUIDField(Field[_ST, _GT]):
         db_index: bool = ...,
         rel: ForeignObjectRel | None = ...,
         default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
+        db_default: type[NOT_PROVIDED] | Expression | _ST_UUID = ...,
         editable: bool = ...,
         serialize: bool = ...,
         unique_for_date: str | None = ...,
@@ -679,12 +681,10 @@ class FilePathField(Field[_ST, _GT]):
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
-class BinaryField(Field[_ST, _GT]):
-    _pyi_private_get_type: bytes | memoryview
+class BinaryField(Field[_ST_BINARY, _GT_BINARY]):
     def get_placeholder(self, value: Any, compiler: SQLCompiler, connection: BaseDatabaseWrapper) -> str: ...
 
-class DurationField(Field[_ST, _GT]):
-    _pyi_private_get_type: timedelta
+class DurationField(Field[_ST_DURATION, _GT_DURATION]):
     @override
     def formfield(self, **kwargs: Any) -> forms.Field | None: ...  # type: ignore[override]
 
@@ -700,13 +700,11 @@ class AutoFieldMixin:
 
 class AutoFieldMeta(type): ...
 
-class AutoField(AutoFieldMixin, IntegerField[_ST, _GT], metaclass=AutoFieldMeta):  # type: ignore[misc]
-    _pyi_private_set_type: Combinable | int | str
-    _pyi_private_get_type: int
+class AutoField(AutoFieldMixin, IntegerField[_ST_AUTO, _GT_AUTO], metaclass=AutoFieldMeta):  # type: ignore[misc]
     _pyi_lookup_exact_type: str | int
 
-class BigAutoField(AutoFieldMixin, BigIntegerField[_ST, _GT]): ...  # type: ignore[misc]
-class SmallAutoField(AutoFieldMixin, SmallIntegerField[_ST, _GT]): ...  # type: ignore[misc]
+class BigAutoField(AutoFieldMixin, BigIntegerField[_ST_AUTO, _GT_AUTO]): ...  # type: ignore[misc]
+class SmallAutoField(AutoFieldMixin, SmallIntegerField[_ST_AUTO, _GT_AUTO]): ...  # type: ignore[misc]
 
 __all__ = [
     "BLANK_CHOICE_DASH",

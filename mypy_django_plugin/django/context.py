@@ -16,6 +16,7 @@ from django.db.models.fields.related import ForeignKey, RelatedField
 from django.db.models.fields.reverse_related import ForeignObjectRel
 from django.db.models.lookups import Exact
 from django.db.models.sql.query import Query
+from mypy.maptype import map_instance_to_supertype
 from mypy.typeanal import make_optional_type
 from mypy.types import AnyType, Instance, ProperType, TypeOfAny, UnionType, get_proper_type
 from mypy.types import Type as MypyType
@@ -198,15 +199,18 @@ class DjangoContext:
 
     def get_expected_types(self, api: TypeChecker, model_cls: type[Model], *, method: str) -> dict[str, MypyType]:
         contenttypes_in_apps = self.apps_registry.is_installed("django.contrib.contenttypes")
+        model_info = helpers.lookup_class_typeinfo(api, model_cls)
 
         expected_types = {}
-        # add pk if not abstract=True
         if not model_cls._meta.abstract:
             primary_key_field = self.get_primary_key_field(model_cls)
-            field_set_type = self.get_field_set_type(api, primary_key_field, method=method)
-            expected_types["pk"] = field_set_type
+            field_set_type = _get_field_set_type_from_model_type_info(
+                model_info, primary_key_field.attname
+            ) or self.get_field_set_type(api, primary_key_field, method=method)
+            # Setting pk to None is allowed to copy instances
+            # https://docs.djangoproject.com/en/6.0/topics/db/queries/#copying-model-instances
+            expected_types["pk"] = make_optional_type(field_set_type)
 
-        model_info = helpers.lookup_class_typeinfo(api, model_cls)
         for field in model_cls._meta.get_fields():
             if contenttypes_in_apps:
                 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -218,9 +222,8 @@ class DjangoContext:
                     if gfk_info is None:
                         gfk_set_type: MypyType = AnyType(TypeOfAny.unannotated)
                     else:
-                        gfk_set_type = helpers.get_private_descriptor_type(
-                            gfk_info, "_pyi_private_set_type", is_nullable=True
-                        )
+                        # GFK is always nullable and its type is Any
+                        gfk_set_type = AnyType(TypeOfAny.explicit)
                     expected_types[field_name] = gfk_set_type
                     continue
 
@@ -261,10 +264,9 @@ class DjangoContext:
                         continue
 
                     is_nullable = self.get_field_nullability(field, method)
-                    foreign_key_set_type = helpers.get_private_descriptor_type(
-                        foreign_key_info, "_pyi_private_set_type", is_nullable=is_nullable
-                    )
-                    model_set_type = helpers.convert_any_to_type(foreign_key_set_type, Instance(related_model_info, []))
+                    model_set_type: MypyType = Instance(related_model_info, [])
+                    if is_nullable:
+                        model_set_type = make_optional_type(model_set_type)
 
                     expected_types[field_name] = model_set_type
 
@@ -324,9 +326,14 @@ class DjangoContext:
         if field_info is None:
             return AnyType(TypeOfAny.from_error)
 
-        field_set_type = helpers.get_private_descriptor_type(
-            field_info, "_pyi_private_set_type", is_nullable=self.get_field_nullability(field, method)
-        )
+        from mypy_django_plugin.transformers.fields import fill_field_defaults
+
+        defaults = fill_field_defaults(field_info)
+        base_field_type = next(base for base in field_info.mro if base.fullname == fullnames.FIELD_FULLNAME)
+        mapped = map_instance_to_supertype(defaults, base_field_type)
+        field_set_type: MypyType = get_proper_type(mapped.args[0])
+        if self.get_field_nullability(field, method):
+            field_set_type = make_optional_type(field_set_type)
         if isinstance(target_field, ArrayField):
             argument_field_type = self.get_field_set_type(api, target_field.base_field, method=method)
             field_set_type = helpers.convert_any_to_type(field_set_type, argument_field_type)
@@ -364,7 +371,15 @@ class DjangoContext:
                 return AnyType(TypeOfAny.unannotated)
 
             return Instance(model_info, [])
-        return helpers.get_private_descriptor_type(field_info, "_pyi_private_get_type", is_nullable=is_nullable)
+        from mypy_django_plugin.transformers.fields import fill_field_defaults
+
+        defaults = fill_field_defaults(field_info)
+        base_field = next(base for base in field_info.mro if base.fullname == fullnames.FIELD_FULLNAME)
+        mapped = map_instance_to_supertype(defaults, base_field)
+        field_get_type: MypyType = get_proper_type(mapped.args[1])
+        if is_nullable:
+            field_get_type = make_optional_type(field_get_type)
+        return field_get_type
 
     def get_field_related_model_cls(self, field: RelatedField[Any, Any] | ForeignObjectRel) -> type[Model]:
         if isinstance(field, RelatedField):
@@ -489,9 +504,15 @@ class DjangoContext:
                     field_info = helpers.lookup_class_typeinfo(helpers.get_typechecker_api(ctx), field.__class__)
                     if field_info is None:
                         return None
-                    return get_proper_type(
-                        helpers.get_private_descriptor_type(field_info, "_pyi_private_get_type", is_nullable=field.null)
-                    )
+                    from mypy_django_plugin.transformers.fields import fill_field_defaults
+
+                    defaults = fill_field_defaults(field_info)
+                    base_field = next(b for b in field_info.mro if b.fullname == fullnames.FIELD_FULLNAME)
+                    mapped = map_instance_to_supertype(defaults, base_field)
+                    result: MypyType = get_proper_type(mapped.args[1])
+                    if field.null:
+                        result = make_optional_type(result)
+                    return result
                 return lookup_type
 
         return None
