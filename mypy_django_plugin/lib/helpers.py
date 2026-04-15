@@ -39,7 +39,7 @@ from mypy.plugin import (
     MethodContext,
 )
 from mypy.semanal import SemanticAnalyzer
-from mypy.typeanal import make_optional_type
+from mypy.typeanal import fix_instance, make_optional_type
 from mypy.types import (
     AnyType,
     CallableType,
@@ -433,6 +433,27 @@ def get_private_descriptor_type(type_info: TypeInfo, private_field_name: str, is
             descriptor_type = make_optional_type(descriptor_type)
         return descriptor_type
     return AnyType(TypeOfAny.explicit)
+
+
+def fill_field_defaults(
+    field_info: TypeInfo,
+    api: TypeChecker | SemanticAnalyzer,
+    *,
+    is_set_nullable: bool = False,
+) -> Instance:
+    """Build an Instance of `field_info` with PEP 696 TypeVar defaults applied."""
+    inst = Instance(field_info, ())
+    fix_instance(
+        inst,
+        api.fail,
+        api.note,
+        disallow_any=False,
+        options=api.options,
+        use_generic_error=True,
+    )
+    if is_set_nullable and inst.args:
+        inst = inst.copy_modified(args=[make_optional_type(inst.args[0]), *inst.args[1:]])
+    return inst
 
 
 class FieldTypeArgs(NamedTuple):

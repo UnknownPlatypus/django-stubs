@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models.fields import AutoField, Field
 from django.db.models.fields.related import RelatedField
 from mypy.nodes import AssignmentStmt, NameExpr, TypeInfo
+from mypy.typeanal import make_optional_type
 from mypy.types import AnyType, Instance, NoneType, ProperType, TypeOfAny, UninhabitedType, UnionType, get_proper_type
 from mypy.types import Type as MypyType
 
@@ -108,23 +109,16 @@ def fill_descriptor_types_for_related_field(ctx: FunctionContext, django_context
     else:
         related_model_to_set_type = Instance(related_model_to_set_info, [])
 
+    is_nullable = helpers.get_bool_call_argument_by_name(ctx, "null", default=False)
+
+    set_type: MypyType = related_model_to_set_type
+    get_type: MypyType = related_model_type
+    if is_nullable:
+        set_type = make_optional_type(set_type)
+        get_type = make_optional_type(get_type)
+
     # replace Any with referred_to_type
-    return reparametrize_related_field_type(
-        default_related_field_type, set_type=related_model_to_set_type, get_type=related_model_type
-    )
-
-
-class FieldDescriptorTypes(NamedTuple):
-    set: MypyType
-    get: MypyType
-
-
-def get_field_descriptor_types(
-    field_info: TypeInfo, *, is_set_nullable: bool, is_get_nullable: bool
-) -> FieldDescriptorTypes:
-    set_type = helpers.get_private_descriptor_type(field_info, "_pyi_private_set_type", is_nullable=is_set_nullable)
-    get_type = helpers.get_private_descriptor_type(field_info, "_pyi_private_get_type", is_nullable=is_get_nullable)
-    return FieldDescriptorTypes(set=set_type, get=get_type)
+    return reparametrize_related_field_type(default_related_field_type, set_type=set_type, get_type=get_type)
 
 
 def set_descriptor_types_for_field_callback(ctx: FunctionContext, django_context: DjangoContext) -> MypyType:
@@ -143,16 +137,16 @@ def set_descriptor_types_for_field(
 
     is_nullable = helpers.get_bool_call_argument_by_name(ctx, "null", default=False)
     is_primary_key = helpers.get_bool_call_argument_by_name(ctx, "primary_key", default=False)
-    # Allow setting field value to `None` when a field is primary key and has a default that can produce a value
     default_expr = helpers.get_call_argument_by_name(ctx, "default")
     if default_expr is not None:
         is_set_nullable = is_primary_key
 
-    set_type, get_type = get_field_descriptor_types(
-        default_return_type.type,
-        is_set_nullable=is_set_nullable or is_nullable,
-        is_get_nullable=is_get_nullable or is_nullable,
-    )
+    # Get the TypeVar defaults as the baseline types (without nullable wrapping)
+    defaults_instance = helpers.fill_field_defaults(default_return_type.type, helpers.get_typechecker_api(ctx))
+    default_types = helpers.get_field_type_args(defaults_instance)
+    assert default_types is not None
+    set_type: MypyType = default_types.set
+    get_type: MypyType = default_types.get
 
     # reconcile set and get types with the base field class
     mapped_types = helpers.get_field_type_args(default_return_type)
@@ -160,18 +154,32 @@ def set_descriptor_types_for_field(
 
     # bail if either mapped set or get type is Never
     if not (isinstance(mapped_types.set, UninhabitedType) or isinstance(mapped_types.get, UninhabitedType)):
-        # always replace set_type and get_type with (non-Any) mapped types
-        set_type = helpers.convert_any_to_type(mapped_types.set, set_type)
-        get_type = get_proper_type(helpers.convert_any_to_type(mapped_types.get, get_type))
+        # Only apply convert_any_to_type when the mapped type differs from the default,
+        # meaning the user explicitly parameterized the field. Otherwise, the inner Any
+        # values in defaults like list[Any] would be incorrectly replaced.
+        if mapped_types.set != set_type:
+            set_type = helpers.convert_any_to_type(mapped_types.set, set_type)
+        if mapped_types.get != get_type:
+            get_type = get_proper_type(helpers.convert_any_to_type(mapped_types.get, get_type))
 
-        # the get_type must be optional if the field is nullable
-        if (is_get_nullable or is_nullable) and not (
-            isinstance(get_type, NoneType) or helpers.is_optional(get_type) or isinstance(get_type, AnyType)
-        ):
-            ctx.api.fail(
-                f"{default_return_type.type.name} is nullable but its generic get type parameter is not optional",
-                ctx.context,
-            )
+        # For non-parameterized fields with TypeVar defaults, auto-wrap with None when nullable.
+        # Explicitly parameterized fields must include None themselves (error if get type doesn't).
+        uses_defaults = any(tv.has_default() for tv in default_return_type.type.defn.type_vars) and (
+            mapped_types.set == default_types.set and mapped_types.get == default_types.get
+        )
+
+        if (is_set_nullable or is_nullable) and uses_defaults:
+            set_type = make_optional_type(set_type)
+        if is_get_nullable or is_nullable:
+            if isinstance(get_type, NoneType) or helpers.is_optional(get_type) or isinstance(get_type, AnyType):
+                pass
+            elif uses_defaults:
+                get_type = make_optional_type(get_type)
+            else:
+                ctx.api.fail(
+                    f"{default_return_type.type.name} is nullable but its generic get type parameter is not optional",
+                    ctx.context,
+                )
 
     return default_return_type.copy_modified(args=[set_type, get_type])
 

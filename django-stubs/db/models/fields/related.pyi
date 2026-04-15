@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, Generic, Literal, TypeVar, overload
+from typing import Any, Generic, Literal, overload
 from uuid import UUID
 
 from django import forms
@@ -23,7 +23,7 @@ from django.db.models.query_utils import FilteredRelation, PathInfo, Q
 from django.db.models.sql.where import WhereNode
 from django.utils.choices import _Choices
 from django.utils.functional import _StrOrPromise, cached_property
-from typing_extensions import Self, override
+from typing_extensions import Self, TypeVar, override
 
 RECURSIVE_RELATIONSHIP_CONSTANT: Literal["self"]
 
@@ -32,10 +32,12 @@ def lazy_related_operation(
     function: Callable[..., Any], model: type[Model], *related_models: type[Model] | str, **kwargs: Any
 ) -> None: ...
 
+# The default includes Combinable so that when the mypy plugin replaces Any
+# with a concrete model type, Combinable is preserved in the union.
 # __set__ value type
-_ST = TypeVar("_ST", contravariant=True)
+_ST = TypeVar("_ST", contravariant=True, default=Any | Combinable)
 # __get__ return type
-_GT = TypeVar("_GT", covariant=True, default=_ST)
+_GT = TypeVar("_GT", covariant=True, default=Any)
 
 class RelatedField(FieldCacheMixin, Field[_ST, _GT]):
     one_to_many: bool
@@ -177,9 +179,6 @@ class ForeignObject(RelatedField[_ST, _GT]):
     requires_unique_target: bool
 
 class ForeignKey(ForeignObject[_ST, _GT]):
-    _pyi_private_set_type: Any | Combinable
-    _pyi_private_get_type: Any
-
     descriptor_class: type[ForeignKeyDeferredAttribute]
     remote_field: ManyToOneRel
     rel_class: type[ManyToOneRel]
@@ -233,9 +232,6 @@ class ForeignKey(ForeignObject[_ST, _GT]):
     def get_attname_column(self) -> tuple[str, str]: ...  # type: ignore[override]
 
 class OneToOneField(ForeignKey[_ST, _GT]):
-    _pyi_private_set_type: Any | Combinable
-    _pyi_private_get_type: Any
-
     remote_field: OneToOneRel
     rel_class: type[OneToOneRel]
     def __init__(
