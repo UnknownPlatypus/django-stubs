@@ -15,10 +15,10 @@ from django.utils.choices import _Choices
 from django.utils.functional import _StrOrPromise
 from typing_extensions import TypeVar, override
 
-_ST_ARRAY = TypeVar("_ST_ARRAY", contravariant=True, default=Sequence[Any] | Combinable)
-_GT_ARRAY = TypeVar("_GT_ARRAY", covariant=True, default=list[Any])
+_ST_Array = TypeVar("_ST_Array", contravariant=True, default=Sequence[Any] | Combinable)
+_GT_Array = TypeVar("_GT_Array", covariant=True, default=list[Any])
 
-class ArrayField(CheckPostgresInstalledMixin, CheckFieldDefaultMixin, Field[_ST_ARRAY, _GT_ARRAY]):
+class ArrayField(CheckPostgresInstalledMixin, CheckFieldDefaultMixin, Field[_ST_Array, _GT_Array]):
     empty_strings_allowed: bool
     default_error_messages: ClassVar[_ErrorMessagesDict]
     base_field: Field
@@ -39,7 +39,7 @@ class ArrayField(CheckPostgresInstalledMixin, CheckFieldDefaultMixin, Field[_ST_
         null: bool = ...,
         db_index: bool = ...,
         default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST_ARRAY = ...,
+        db_default: type[NOT_PROVIDED] | Expression | _ST_Array = ...,
         editable: bool = ...,
         auto_created: bool = ...,
         serialize: bool = ...,

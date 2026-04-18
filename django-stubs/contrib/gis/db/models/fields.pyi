@@ -25,20 +25,20 @@ _ST = TypeVar("_ST")
 # __get__ return type
 _GT = TypeVar("_GT")
 
-_ST_POINT = TypeVar("_ST_POINT", default=Point | Combinable)
-_GT_POINT = TypeVar("_GT_POINT", default=Point)
-_ST_LINESTRING = TypeVar("_ST_LINESTRING", default=LineString | Combinable)
-_GT_LINESTRING = TypeVar("_GT_LINESTRING", default=LineString)
-_ST_POLYGON = TypeVar("_ST_POLYGON", default=Polygon | Combinable)
-_GT_POLYGON = TypeVar("_GT_POLYGON", default=Polygon)
-_ST_MULTIPOINT = TypeVar("_ST_MULTIPOINT", default=MultiPoint | Combinable)
-_GT_MULTIPOINT = TypeVar("_GT_MULTIPOINT", default=MultiPoint)
-_ST_MULTILINESTRING = TypeVar("_ST_MULTILINESTRING", default=MultiLineString | Combinable)
-_GT_MULTILINESTRING = TypeVar("_GT_MULTILINESTRING", default=MultiLineString)
-_ST_MULTIPOLYGON = TypeVar("_ST_MULTIPOLYGON", default=MultiPolygon | Combinable)
-_GT_MULTIPOLYGON = TypeVar("_GT_MULTIPOLYGON", default=MultiPolygon)
-_ST_GEOMCOLLECTION = TypeVar("_ST_GEOMCOLLECTION", default=GeometryCollection | Combinable)
-_GT_GEOMCOLLECTION = TypeVar("_GT_GEOMCOLLECTION", default=GeometryCollection)
+_ST_Point = TypeVar("_ST_Point", default=Point | Combinable)
+_GT_Point = TypeVar("_GT_Point", default=Point)
+_ST_LineString = TypeVar("_ST_LineString", default=LineString | Combinable)
+_GT_LineString = TypeVar("_GT_LineString", default=LineString)
+_ST_Polygon = TypeVar("_ST_Polygon", default=Polygon | Combinable)
+_GT_Polygon = TypeVar("_GT_Polygon", default=Polygon)
+_ST_MultiPoint = TypeVar("_ST_MultiPoint", default=MultiPoint | Combinable)
+_GT_MultiPoint = TypeVar("_GT_MultiPoint", default=MultiPoint)
+_ST_MultiLineString = TypeVar("_ST_MultiLineString", default=MultiLineString | Combinable)
+_GT_MultiLineString = TypeVar("_GT_MultiLineString", default=MultiLineString)
+_ST_MultiPolygon = TypeVar("_ST_MultiPolygon", default=MultiPolygon | Combinable)
+_GT_MultiPolygon = TypeVar("_GT_MultiPolygon", default=MultiPolygon)
+_ST_GeometryCollection = TypeVar("_ST_GeometryCollection", default=GeometryCollection | Combinable)
+_GT_GeometryCollection = TypeVar("_GT_GeometryCollection", default=GeometryCollection)
 
 class SRIDCacheEntry(NamedTuple):
     units: Any
@@ -145,43 +145,43 @@ class GeometryField(BaseSpatialField[_ST, _GT]):
         **kwargs: Any,
     ) -> forms.GeometryField: ...
 
-class PointField(GeometryField[_ST_POINT, _GT_POINT]):
+class PointField(GeometryField[_ST_Point, _GT_Point]):
     _pyi_lookup_exact_type: Point
 
     geom_class: type[Point]
     form_class: type[forms.PointField]
 
-class LineStringField(GeometryField[_ST_LINESTRING, _GT_LINESTRING]):
+class LineStringField(GeometryField[_ST_LineString, _GT_LineString]):
     _pyi_lookup_exact_type: LineString
 
     geom_class: type[LineString]
     form_class: type[forms.LineStringField]
 
-class PolygonField(GeometryField[_ST_POLYGON, _GT_POLYGON]):
+class PolygonField(GeometryField[_ST_Polygon, _GT_Polygon]):
     _pyi_lookup_exact_type: Polygon
 
     geom_class: type[Polygon]
     form_class: type[forms.PolygonField]
 
-class MultiPointField(GeometryField[_ST_MULTIPOINT, _GT_MULTIPOINT]):
+class MultiPointField(GeometryField[_ST_MultiPoint, _GT_MultiPoint]):
     _pyi_lookup_exact_type: MultiPoint
 
     geom_class: type[MultiPoint]
     form_class: type[forms.MultiPointField]
 
-class MultiLineStringField(GeometryField[_ST_MULTILINESTRING, _GT_MULTILINESTRING]):
+class MultiLineStringField(GeometryField[_ST_MultiLineString, _GT_MultiLineString]):
     _pyi_lookup_exact_type: MultiLineString
 
     geom_class: type[MultiLineString]
     form_class: type[forms.MultiLineStringField]
 
-class MultiPolygonField(GeometryField[_ST_MULTIPOLYGON, _GT_MULTIPOLYGON]):
+class MultiPolygonField(GeometryField[_ST_MultiPolygon, _GT_MultiPolygon]):
     _pyi_lookup_exact_type: MultiPolygon
 
     geom_class: type[MultiPolygon]
     form_class: type[forms.MultiPolygonField]
 
-class GeometryCollectionField(GeometryField[_ST_GEOMCOLLECTION, _GT_GEOMCOLLECTION]):
+class GeometryCollectionField(GeometryField[_ST_GeometryCollection, _GT_GeometryCollection]):
     _pyi_lookup_exact_type: GeometryCollection
 
     geom_class: type[GeometryCollection]
