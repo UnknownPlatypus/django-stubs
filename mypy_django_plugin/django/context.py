@@ -203,9 +203,9 @@ class DjangoContext:
         expected_types = {}
         if not model_cls._meta.abstract:
             primary_key_field = self.get_primary_key_field(model_cls)
-            pk_set_type = _get_field_set_type_from_model_type_info(
-                model_info, primary_key_field.attname
-            ) or self.get_field_set_type(api, primary_key_field, method=method)
+            pk_set_type = _get_field_set_type_from_model_type_info(model_info, primary_key_field.attname) or AnyType(
+                TypeOfAny.from_error
+            )
             # Setting pk to None is allowed to copy instances
             # https://docs.djangoproject.com/en/6.0/topics/db/queries/#copying-model-instances
             expected_types["pk"] = make_optional_type(pk_set_type)
