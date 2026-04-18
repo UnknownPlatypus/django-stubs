@@ -97,18 +97,18 @@ def get_field_type_from_model_type_info(info: TypeInfo | None, field_name: str) 
     return field_type
 
 
-def _get_field_set_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> MypyType | None:
+def _get_field_set_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> ProperType:
     field_type = get_field_type_from_model_type_info(info, field_name)
     if field_type is not None:
-        return field_type.args[0]
-    return None
+        return get_proper_type(field_type.args[0])
+    return AnyType(TypeOfAny.from_error)
 
 
-def _get_field_get_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> MypyType | None:
+def _get_field_get_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> ProperType:
     field_type = get_field_type_from_model_type_info(info, field_name)
     if field_type is not None:
-        return field_type.args[1]
-    return None
+        return get_proper_type(field_type.args[1])
+    return AnyType(TypeOfAny.from_error)
 
 
 class DjangoContext:
@@ -203,9 +203,7 @@ class DjangoContext:
         expected_types = {}
         if not model_cls._meta.abstract:
             primary_key_field = self.get_primary_key_field(model_cls)
-            pk_set_type = _get_field_set_type_from_model_type_info(model_info, primary_key_field.attname) or AnyType(
-                TypeOfAny.from_error
-            )
+            pk_set_type = _get_field_set_type_from_model_type_info(model_info, primary_key_field.attname)
             # Setting pk to None is allowed to copy instances
             # https://docs.djangoproject.com/en/6.0/topics/db/queries/#copying-model-instances
             expected_types["pk"] = make_optional_type(pk_set_type)
@@ -224,13 +222,8 @@ class DjangoContext:
                 # Can not determine target_field for recursive relationship when model is abstract
                 if field.related_model == "self" and model_cls._meta.abstract:
                     continue
-                # Try to retrieve set type from a model's TypeInfo object and fallback to retrieving it manually
-                # from django-stubs own declaration. This is to align with the setter types declared for
-                # assignment.
-                field_set_type = _get_field_set_type_from_model_type_info(
-                    model_info, field_name
-                ) or self.get_field_set_type(api, field, method=method)
-                expected_types[field_name] = field_set_type
+
+                expected_types[field_name] = _get_field_set_type_from_model_type_info(model_info, field_name)
 
                 if isinstance(field, ForeignKey):
                     field_name = field.name
@@ -345,7 +338,7 @@ class DjangoContext:
         """Get a type of __get__ for this specific Django field."""
         if isinstance(field, Field):
             get_type = _get_field_get_type_from_model_type_info(model_info, getattr(field, "attname", field.name))
-            if get_type is not None:
+            if not isinstance(get_type, AnyType):
                 return get_type
 
         field_info = helpers.lookup_class_typeinfo(api, field.__class__)
