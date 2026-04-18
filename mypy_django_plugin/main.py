@@ -159,8 +159,8 @@ class NewSemanalDjangoPlugin(Plugin):
         if info.has_base(fullnames.PREFETCH_CLASS_FULLNAME):
             return partial(querysets.specialize_prefetch_type, django_context=self.django_context)
 
-            if info.has_base(fullnames.FUNC_EXPRESSION_FULLNAME):
-                return querysets.reparameterize_func_output_field
+        if info.has_base(fullnames.FUNC_EXPRESSION_FULLNAME):
+            return querysets.reparameterize_func_output_field
 
         return None
 
