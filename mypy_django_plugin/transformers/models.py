@@ -345,7 +345,7 @@ class AddRelatedModelsId(ModelClassInitializer):
                 continue
 
             field_instance = helpers.fill_field_defaults(field_info, self.api)
-            is_nullable = self.django_context.get_field_nullability(field, None)
+            is_nullable = self.django_context.get_field_nullability(field)
             if is_nullable:
                 field_instance = field_instance.copy_modified(
                     args=[make_optional_type(arg) for arg in field_instance.args]

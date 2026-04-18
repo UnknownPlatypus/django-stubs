@@ -11,7 +11,7 @@ from django.core.exceptions import FieldDoesNotExist, FieldError
 from django.db import models
 from django.db.models.base import Model
 from django.db.models.constants import LOOKUP_SEP
-from django.db.models.fields import AutoField, CharField, Field
+from django.db.models.fields import CharField, Field
 from django.db.models.fields.related import ForeignKey, RelatedField
 from django.db.models.fields.reverse_related import ForeignObjectRel
 from django.db.models.lookups import Exact
@@ -216,19 +216,10 @@ class DjangoContext:
             if klass is not models.Model
         }
 
-    def get_field_nullability(self, field: Field[Any, Any] | ForeignObjectRel, method: str | None) -> bool:
-        if method in ("values", "values_list"):
-            return field.null
-
+    def get_field_nullability(self, field: Field[Any, Any] | ForeignObjectRel) -> bool:
         nullable = field.null
         if not nullable and isinstance(field, CharField) and field.blank:
             return True
-        if method == "__init__":
-            if (isinstance(field, Field) and field.primary_key) or isinstance(field, ForeignKey):
-                return True
-        if method == "create":
-            if isinstance(field, AutoField):
-                return True
         if isinstance(field, Field) and field.has_default():
             return True
         return nullable
