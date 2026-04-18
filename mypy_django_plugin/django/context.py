@@ -198,7 +198,6 @@ class DjangoContext:
 
     def get_expected_types(self, api: TypeChecker, model_cls: type[Model], *, method: str) -> dict[str, MypyType]:
         """Return a mapping of field name to the type accepted when assigning/passing it as a kwarg."""
-        contenttypes_in_apps = self.apps_registry.is_installed("django.contrib.contenttypes")
         model_info = helpers.lookup_class_typeinfo(api, model_cls)
 
         expected_types = {}
@@ -210,14 +209,6 @@ class DjangoContext:
             expected_types["pk"] = make_optional_type(pk_set_type)
 
         for field in model_cls._meta.get_fields():
-            if contenttypes_in_apps:
-                from django.contrib.contenttypes.fields import GenericForeignKey
-
-                if isinstance(field, GenericForeignKey):
-                    # A GenericForeignKey can reference any model, so we can't narrow the assignment type (yet!)
-                    expected_types[field.name] = AnyType(TypeOfAny.unannotated)
-                    continue
-
             if isinstance(field, Field):
                 field_name = getattr(field, "attname", field.name)
                 # Can not determine target_field for recursive relationship when model is abstract
