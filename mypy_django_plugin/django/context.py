@@ -215,15 +215,8 @@ class DjangoContext:
                 from django.contrib.contenttypes.fields import GenericForeignKey
 
                 if isinstance(field, GenericForeignKey):
-                    # it's generic, so cannot set specific model
-                    field_name = field.name
-                    gfk_info = helpers.lookup_class_typeinfo(api, field.__class__)
-                    if gfk_info is None:
-                        gfk_set_type: MypyType = AnyType(TypeOfAny.unannotated)
-                    else:
-                        # GFK is always nullable and its type is Any
-                        gfk_set_type = AnyType(TypeOfAny.explicit)
-                    expected_types[field_name] = gfk_set_type
+                    # A GenericForeignKey can reference any model, so we can't narrow the assignment type (yet!)
+                    expected_types[field.name] = AnyType(TypeOfAny.unannotated)
                     continue
 
             if isinstance(field, Field):
