@@ -261,34 +261,6 @@ class DjangoContext:
             return True
         return nullable
 
-    def get_field_set_type(
-        self, api: TypeChecker, field: Field[Any, Any] | ForeignObjectRel, *, method: str
-    ) -> MypyType:
-        """Get a type of __set__ for this specific Django field."""
-        target_field = field
-        if isinstance(field, ForeignKey):
-            try:
-                # We gotta be careful for exceptions when we're triggering '__get__'.
-                # Related model could very well be unresolvable
-                target_field = field.target_field
-            except ValueError:
-                return AnyType(TypeOfAny.from_error)
-
-        field_info = helpers.lookup_class_typeinfo(api, target_field.__class__)
-        if field_info is None:
-            return AnyType(TypeOfAny.from_error)
-
-        defaults = helpers.fill_field_defaults(field_info, api)
-        field_type_args = helpers.get_field_type_args(defaults)
-        assert field_type_args is not None
-        field_set_type: MypyType = field_type_args.set
-        if self.get_field_nullability(field, method):
-            field_set_type = make_optional_type(field_set_type)
-        if isinstance(target_field, ArrayField):
-            argument_field_type = self.get_field_set_type(api, target_field.base_field, method=method)
-            field_set_type = helpers.convert_any_to_type(field_set_type, argument_field_type)
-        return field_set_type
-
     def get_field_get_type(
         self,
         api: TypeChecker,
