@@ -461,11 +461,9 @@ class FieldTypeArgs(NamedTuple):
     get: ProperType
 
 
-def get_field_type_args(field_type: Instance) -> FieldTypeArgs | None:
+def get_field_type_args(field_type: Instance) -> FieldTypeArgs:
     """Extract (_ST, _GT) from a Field instance by mapping to the base Field class."""
-    base_field_info = next((base for base in field_type.type.mro if base.fullname == fullnames.FIELD_FULLNAME), None)
-    if base_field_info is None:
-        return None
+    base_field_info = next(base for base in field_type.type.mro if base.fullname == fullnames.FIELD_FULLNAME)
     mapped = map_instance_to_supertype(field_type, base_field_info)
     return FieldTypeArgs(set=get_proper_type(mapped.args[0]), get=get_proper_type(mapped.args[1]))
 

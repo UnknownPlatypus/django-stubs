@@ -144,20 +144,18 @@ def set_descriptor_types_for_field(
     # Get the TypeVar defaults as the baseline types (without nullable wrapping)
     defaults_instance = helpers.fill_field_defaults(default_return_type.type, helpers.get_typechecker_api(ctx))
     default_types = helpers.get_field_type_args(defaults_instance)
-    assert default_types is not None
     set_type: MypyType = default_types.set
     get_type: MypyType = default_types.get
 
     # reconcile set and get types with the base field class
     mapped_types = helpers.get_field_type_args(default_return_type)
-    assert mapped_types is not None
 
     # bail if either mapped set or get type is Never
     if not (isinstance(mapped_types.set, UninhabitedType) or isinstance(mapped_types.get, UninhabitedType)):
         # Only apply convert_any_to_type when the mapped type differs from the default,
         # meaning the user explicitly parameterized the field. Otherwise, the inner Any
         # values in defaults like list[Any] would be incorrectly replaced.
-        if mapped_types.set != set_type:
+        if mapped_types.set != default_types.set:
             set_type = helpers.convert_any_to_type(mapped_types.set, set_type)
         if mapped_types.get != get_type:
             get_type = get_proper_type(helpers.convert_any_to_type(mapped_types.get, get_type))

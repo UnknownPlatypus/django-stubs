@@ -350,7 +350,6 @@ class DjangoContext:
                         return None
                     defaults = helpers.fill_field_defaults(field_info, api)
                     field_type_args = helpers.get_field_type_args(defaults)
-                    assert field_type_args is not None
                     result: MypyType = field_type_args.get
                     if field.null:
                         result = make_optional_type(result)

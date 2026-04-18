@@ -288,7 +288,7 @@ def _resolve_output_field_type(expr_type: MypyType) -> MypyType | None:
         arg_proper = get_proper_type(arg)
         if isinstance(arg_proper, Instance) and arg_proper.type.has_base(fullnames.FIELD_FULLNAME):
             type_args = helpers.get_field_type_args(arg_proper)
-            if type_args is not None and not isinstance(type_args.get, AnyType):
+            if not isinstance(type_args.get, AnyType):
                 return type_args.get
 
     # Then check static output_field declarations (ClassVar or @property/@cached_property).
@@ -308,7 +308,7 @@ def _resolve_output_field_type(expr_type: MypyType) -> MypyType | None:
 
     if isinstance(field_type, Instance) and field_type.type.has_base(fullnames.FIELD_FULLNAME):
         type_args = helpers.get_field_type_args(field_type)
-        if type_args is not None and not isinstance(type_args.get, AnyType):
+        if not isinstance(type_args.get, AnyType):
             return type_args.get
 
     return None
