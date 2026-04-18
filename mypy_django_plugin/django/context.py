@@ -197,6 +197,7 @@ class DjangoContext:
         raise ValueError("No primary key defined")
 
     def get_expected_types(self, api: TypeChecker, model_cls: type[Model], *, method: str) -> dict[str, MypyType]:
+        """Return a mapping of field name to the type accepted when assigning/passing it as a kwarg."""
         contenttypes_in_apps = self.apps_registry.is_installed("django.contrib.contenttypes")
         model_info = helpers.lookup_class_typeinfo(api, model_cls)
 
@@ -226,35 +227,12 @@ class DjangoContext:
                 expected_types[field_name] = _get_field_set_type_from_model_type_info(model_info, field_name)
 
                 if isinstance(field, ForeignKey):
+                    # In the case of a FK, we need to register both `fk_name` and `fk_name_id`
+                    # - `field.attname` -> `fk_name_id`
+                    # - `field.name`  -> `fk_name`
                     field_name = field.name
-                    foreign_key_info = helpers.lookup_class_typeinfo(api, field.__class__)
-                    if foreign_key_info is None:
-                        # maybe there's no type annotation for the field
-                        expected_types[field_name] = AnyType(TypeOfAny.unannotated)
-                        continue
-
-                    try:
-                        related_model = self.get_field_related_model_cls(field)
-                    except UnregisteredModelError:
-                        # Recognise the field but don't say anything about its type..
-                        expected_types[field_name] = AnyType(TypeOfAny.from_error)
-                        continue
-
-                    if related_model._meta.proxy_for_model is not None:
-                        related_model = related_model._meta.proxy_for_model
-
-                    related_model_info = helpers.lookup_class_typeinfo(api, related_model)
-                    if related_model_info is None:
-                        expected_types[field_name] = AnyType(TypeOfAny.unannotated)
-                        continue
-
+                    model_set_type = _get_field_set_type_from_model_type_info(model_info, field_name)
                     is_nullable = self.get_field_nullability(field, method)
-                    defaults = helpers.fill_field_defaults(foreign_key_info, api)
-                    fk_types = helpers.get_field_type_args(defaults)
-                    assert fk_types is not None
-                    model_set_type: MypyType = helpers.convert_any_to_type(
-                        fk_types.set, Instance(related_model_info, [])
-                    )
                     if is_nullable:
                         model_set_type = make_optional_type(model_set_type)
 
