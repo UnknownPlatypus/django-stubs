@@ -225,18 +225,11 @@ class DjangoContext:
                     continue
 
                 expected_types[field_name] = _get_field_set_type_from_model_type_info(model_info, field_name)
-
                 if isinstance(field, ForeignKey):
                     # In the case of a FK, we need to register both `fk_name` and `fk_name_id`
                     # - `field.attname` -> `fk_name_id`
                     # - `field.name`  -> `fk_name`
-                    field_name = field.name
-                    model_set_type = _get_field_set_type_from_model_type_info(model_info, field_name)
-                    is_nullable = self.get_field_nullability(field, method)
-                    if is_nullable:
-                        model_set_type = make_optional_type(model_set_type)
-
-                    expected_types[field_name] = model_set_type
+                    expected_types[field.name] = _get_field_set_type_from_model_type_info(model_info, field.name)
 
         return expected_types
 
