@@ -166,7 +166,7 @@ class DjangoContext:
                 return AnyType(TypeOfAny.explicit)
 
             primary_key_field = self.get_primary_key_field(related_model_cls)
-            primary_key_type = self.get_field_get_type(api, rel_model_info, primary_key_field, method="init")
+            primary_key_type = _get_field_get_type_from_model_type_info(rel_model_info, primary_key_field.attname)
 
             model_and_primary_key_type = UnionType.make_union([Instance(rel_model_info, []), primary_key_type])
             return make_optional_type(model_and_primary_key_type)
@@ -260,46 +260,6 @@ class DjangoContext:
         if isinstance(field, Field) and field.has_default():
             return True
         return nullable
-
-    def get_field_get_type(
-        self,
-        api: TypeChecker,
-        model_info: TypeInfo | None,
-        field: Field[Any, Any] | ForeignObjectRel,
-        *,
-        method: str,
-    ) -> MypyType:
-        """Get a type of __get__ for this specific Django field."""
-        if isinstance(field, Field):
-            get_type = _get_field_get_type_from_model_type_info(model_info, getattr(field, "attname", field.name))
-            if not isinstance(get_type, AnyType):
-                return get_type
-
-        field_info = helpers.lookup_class_typeinfo(api, field.__class__)
-        if field_info is None:
-            return AnyType(TypeOfAny.unannotated)
-
-        is_nullable = self.get_field_nullability(field, method)
-        if isinstance(field, RelatedField):
-            related_model_cls = self.get_field_related_model_cls(field)
-            rel_model_info = helpers.lookup_class_typeinfo(api, related_model_cls)
-
-            if method in ("values", "values_list"):
-                primary_key_field = self.get_primary_key_field(related_model_cls)
-                return self.get_field_get_type(api, rel_model_info, primary_key_field, method=method)
-
-            model_info = helpers.lookup_class_typeinfo(api, related_model_cls)
-            if model_info is None:
-                return AnyType(TypeOfAny.unannotated)
-
-            return Instance(model_info, [])
-        defaults = helpers.fill_field_defaults(field_info, api)
-        field_type_args = helpers.get_field_type_args(defaults)
-        assert field_type_args is not None
-        field_get_type: MypyType = field_type_args.get
-        if is_nullable:
-            field_get_type = make_optional_type(field_get_type)
-        return field_get_type
 
     def get_field_related_model_cls(self, field: RelatedField[Any, Any] | ForeignObjectRel) -> type[Model]:
         if isinstance(field, RelatedField):
