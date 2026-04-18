@@ -470,6 +470,35 @@ def get_field_type_args(field_type: Instance) -> FieldTypeArgs | None:
     return FieldTypeArgs(set=get_proper_type(mapped.args[0]), get=get_proper_type(mapped.args[1]))
 
 
+def get_field_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> Instance | None:
+    if info is None:
+        return None
+    field_node = info.get(field_name)
+    if field_node is None:
+        return None
+    field_type = get_proper_type(field_node.type)
+    if not isinstance(field_type, Instance):
+        return None
+    # Field declares a set and a get type arg. Fallback to `None` when we can't find any args
+    if len(field_type.args) != 2:
+        return None
+    return field_type
+
+
+def get_field_set_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> ProperType:
+    field_type = get_field_type_from_model_type_info(info, field_name)
+    if field_type is not None:
+        return get_proper_type(field_type.args[0])
+    return AnyType(TypeOfAny.from_error)
+
+
+def get_field_get_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> ProperType:
+    field_type = get_field_type_from_model_type_info(info, field_name)
+    if field_type is not None:
+        return get_proper_type(field_type.args[1])
+    return AnyType(TypeOfAny.from_error)
+
+
 def get_field_lookup_exact_type(api: TypeChecker, field: Field[Any, Any]) -> MypyType:
     if isinstance(field, RelatedField | ForeignObjectRel):
         # Not using field.related_model because that may have str value "self"

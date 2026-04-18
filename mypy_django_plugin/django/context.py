@@ -40,7 +40,6 @@ if TYPE_CHECKING:
     from django.db.models.expressions import Expression
     from django.db.models.options import _AnyField
     from mypy.checker import TypeChecker
-    from mypy.nodes import TypeInfo
     from mypy.plugin import MethodContext
 
 
@@ -80,35 +79,6 @@ def initialize_django(settings_module: str) -> tuple[Apps, LazySettings]:
 
 class LookupsAreUnsupported(Exception):
     pass
-
-
-def get_field_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> Instance | None:
-    if info is None:
-        return None
-    field_node = info.get(field_name)
-    if field_node is None:
-        return None
-    field_type = get_proper_type(field_node.type)
-    if not isinstance(field_type, Instance):
-        return None
-    # Field declares a set and a get type arg. Fallback to `None` when we can't find any args
-    if len(field_type.args) != 2:
-        return None
-    return field_type
-
-
-def _get_field_set_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> ProperType:
-    field_type = get_field_type_from_model_type_info(info, field_name)
-    if field_type is not None:
-        return get_proper_type(field_type.args[0])
-    return AnyType(TypeOfAny.from_error)
-
-
-def _get_field_get_type_from_model_type_info(info: TypeInfo | None, field_name: str) -> ProperType:
-    field_type = get_field_type_from_model_type_info(info, field_name)
-    if field_type is not None:
-        return get_proper_type(field_type.args[1])
-    return AnyType(TypeOfAny.from_error)
 
 
 class DjangoContext:
@@ -166,7 +136,9 @@ class DjangoContext:
                 return AnyType(TypeOfAny.explicit)
 
             primary_key_field = self.get_primary_key_field(related_model_cls)
-            primary_key_type = _get_field_get_type_from_model_type_info(rel_model_info, primary_key_field.attname)
+            primary_key_type = helpers.get_field_get_type_from_model_type_info(
+                rel_model_info, primary_key_field.attname
+            )
 
             model_and_primary_key_type = UnionType.make_union([Instance(rel_model_info, []), primary_key_type])
             return make_optional_type(model_and_primary_key_type)
@@ -203,7 +175,7 @@ class DjangoContext:
         expected_types = {}
         if not model_cls._meta.abstract:
             primary_key_field = self.get_primary_key_field(model_cls)
-            pk_set_type = _get_field_set_type_from_model_type_info(model_info, primary_key_field.attname)
+            pk_set_type = helpers.get_field_set_type_from_model_type_info(model_info, primary_key_field.attname)
             # Setting pk to None is allowed to copy instances
             # https://docs.djangoproject.com/en/6.0/topics/db/queries/#copying-model-instances
             expected_types["pk"] = make_optional_type(pk_set_type)
@@ -215,12 +187,12 @@ class DjangoContext:
                 if field.related_model == "self" and model_cls._meta.abstract:
                     continue
 
-                expected_types[field_name] = _get_field_set_type_from_model_type_info(model_info, field_name)
+                expected_types[field_name] = helpers.get_field_set_type_from_model_type_info(model_info, field_name)
                 if isinstance(field, ForeignKey):
                     # In the case of a FK, we need to register both `fk_name` and `fk_name_id`
                     # - `field.attname` -> `fk_name_id`
                     # - `field.name`  -> `fk_name`
-                    expected_types[field.name] = _get_field_set_type_from_model_type_info(model_info, field.name)
+                    expected_types[field.name] = helpers.get_field_set_type_from_model_type_info(model_info, field.name)
 
         return expected_types
 

@@ -41,11 +41,7 @@ from mypy.types import (
 )
 from mypy.types import Type as MypyType
 
-from mypy_django_plugin.django.context import (
-    DjangoContext,
-    LookupsAreUnsupported,
-    _get_field_get_type_from_model_type_info,
-)
+from mypy_django_plugin.django.context import DjangoContext, LookupsAreUnsupported
 from mypy_django_plugin.lib import fullnames, helpers
 from mypy_django_plugin.transformers.models import get_annotated_type
 
@@ -114,7 +110,7 @@ def get_field_type_from_lookup(
 
     api = helpers.get_typechecker_api(ctx)
     model_info = helpers.lookup_class_typeinfo(api, model_cls)
-    return _get_field_get_type_from_model_type_info(model_info, lookup_field.attname)
+    return helpers.get_field_get_type_from_model_type_info(model_info, lookup_field.attname)
 
 
 def get_values_list_row_type(
@@ -143,7 +139,7 @@ def get_values_list_row_type(
         if named:
             column_types: dict[str, MypyType] = {}
             for field in django_context.get_model_fields(model_cls):
-                column_type = _get_field_get_type_from_model_type_info(model_info, field.attname)
+                column_type = helpers.get_field_get_type_from_model_type_info(model_info, field.attname)
                 column_types[field.attname] = column_type
             column_types.update(annotation_types)
             return helpers.make_oneoff_named_tuple(typechecker_api, "Row", column_types)
