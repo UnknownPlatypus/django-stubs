@@ -138,7 +138,7 @@
 
       class A(admin.ModelAdmin):
           formfield_overrides = {
-              "not a field": {  # E: Dict entry 0 has incompatible type "str": "dict[str, Any]"; expected "type[Field[Any, Any]]": "Mapping[str, Any]"  [dict-item]
+              "not a field": {  # E: Dict entry 0 has incompatible type "str": "dict[str, Any]"; expected "type[Field[Any, Any, Literal[False]]]": "Mapping[str, Any]"  [dict-item]
                   "widget": Textarea
               }
           }
