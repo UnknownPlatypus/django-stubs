@@ -3,7 +3,6 @@ from typing import Any, ClassVar, Literal, TypeVar, overload
 
 from django.db import models
 from django.db.models.base import Model
-from django.db.models.expressions import Combinable
 from django.db.models.fields import BooleanField
 
 _T = TypeVar("_T", bound=Model)
@@ -22,7 +21,7 @@ class AbstractBaseUser(models.Model):
 
     password = models.CharField(max_length=128)
     last_login = models.DateTimeField(blank=True, null=True)
-    is_active: bool | BooleanField[bool | Combinable, bool]
+    is_active: bool | BooleanField[bool, bool]
     backend: str  # Set dynamically by authenticate(), used by login()
 
     def get_username(self) -> str: ...
