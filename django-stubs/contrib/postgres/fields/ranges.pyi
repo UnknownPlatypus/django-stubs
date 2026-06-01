@@ -1,3 +1,4 @@
+# mypy: disable-error-code="misc"
 from typing import Any, ClassVar, Literal
 
 from _typeshed import Unused

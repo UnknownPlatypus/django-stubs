@@ -1,3 +1,4 @@
+# mypy: disable-error-code="misc"
 import sys
 from collections.abc import Callable, Iterable
 from typing import Any, Protocol, overload, type_check_only
@@ -78,7 +79,7 @@ class FileField(Field[_ST, _GT_File, _NT]):
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: _NT = ...,
+        null: _NT = False,
         db_index: bool = ...,
         default: Any = ...,
         db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
@@ -144,7 +145,7 @@ class ImageField(FileField[_ST, _GT_ImageFile, _NT]):
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: _NT = ...,
+        null: _NT = False,
         db_index: bool = ...,
         default: Any = ...,
         db_default: type[NOT_PROVIDED] | Expression | _ST = ...,

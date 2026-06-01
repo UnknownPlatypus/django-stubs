@@ -146,11 +146,13 @@ def set_descriptor_types_for_field(ctx: FunctionContext, *, is_set_nullable: boo
 
     # Update the _NT (null flag) type argument to match the resolved nullability.
     # In the future, we should be able to remove that once `primary_key` and `default`
-    # are also part of the type and can hence be used to derive the `_NT` value
+    # are also part of the type and can hence be used to derive the `_NT` value.
+    # Always overwrite the slot (previously only when it was already a LiteralType) so that
+    # ``_NT=Any`` defaults from PEP 696 are still narrowed at the call site.
     trailing = list(default_return_type.args[2:])
-    nt_proper = get_proper_type(trailing[0]) if trailing else None
-    if isinstance(nt_proper, LiteralType):
-        trailing[0] = LiteralType(value=is_nullable, fallback=nt_proper.fallback)
+    if trailing:
+        bool_instance = helpers.get_typechecker_api(ctx).named_generic_type("builtins.bool", [])
+        trailing[0] = LiteralType(value=is_nullable, fallback=bool_instance)
     return default_return_type.copy_modified(args=[set_type, get_type, *trailing])
 
 
@@ -160,7 +162,11 @@ def transform_into_proper_return_type(ctx: FunctionContext, django_context: Djan
 
     outer_model_info = helpers.get_typechecker_api(ctx).scope.active_class()
     if outer_model_info is None or not helpers.is_model_type(outer_model_info):
-        return default_return_type
+        # Outside a model class we cannot resolve related-field/M2M context, but we can
+        # still narrow ``_NT`` from the ``null=`` argument so that ``Field()`` calls
+        # in e.g. ``Substr(output_field=BinaryField())`` get ``Literal[False]`` instead
+        # of the ``Any`` default from PEP 696.
+        return set_descriptor_types_for_field(ctx)
 
     assert isinstance(outer_model_info, TypeInfo)
 

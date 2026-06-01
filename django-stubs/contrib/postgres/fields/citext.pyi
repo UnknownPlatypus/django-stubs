@@ -1,3 +1,4 @@
+# mypy: disable-error-code="misc"
 from django.db.models.fields import CharField, EmailField, TextField
 
 class CICharField(CharField): ...

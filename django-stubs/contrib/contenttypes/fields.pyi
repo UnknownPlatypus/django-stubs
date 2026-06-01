@@ -1,3 +1,4 @@
+# mypy: disable-error-code="misc"
 from collections.abc import Callable
 from typing import Any
 

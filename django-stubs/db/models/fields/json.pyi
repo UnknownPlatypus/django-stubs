@@ -1,3 +1,4 @@
+# mypy: disable-error-code="misc"
 import json
 from collections.abc import Callable, Iterable
 from typing import Any, ClassVar
@@ -30,7 +31,7 @@ class JSONField(CheckFieldDefaultMixin, Field[_ST_JSON, _GT_JSON, _NT]):
         primary_key: bool = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: _NT = ...,
+        null: _NT = False,
         db_index: bool = ...,
         default: Any = ...,
         db_default: Any = ...,

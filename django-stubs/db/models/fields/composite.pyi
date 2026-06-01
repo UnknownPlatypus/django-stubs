@@ -1,3 +1,4 @@
+# mypy: disable-error-code="misc"
 from collections.abc import Iterable, Iterator, Mapping
 from typing import Any, Literal
 

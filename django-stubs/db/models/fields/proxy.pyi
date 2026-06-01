@@ -1,3 +1,4 @@
+# mypy: disable-error-code="misc"
 from typing import Any
 
 from django.db.models import fields

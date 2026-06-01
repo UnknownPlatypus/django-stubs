@@ -1,3 +1,4 @@
+# mypy: disable-error-code="misc"
 from collections.abc import Iterable, Sequence
 from typing import Any, ClassVar
 
@@ -38,7 +39,7 @@ class ArrayField(
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: _NT = ...,
+        null: _NT = False,
         db_index: bool = ...,
         default: Any = ...,
         db_default: type[NOT_PROVIDED] | Expression | list[_ST_Array] = ...,

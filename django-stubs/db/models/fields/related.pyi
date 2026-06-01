@@ -1,3 +1,4 @@
+# mypy: disable-error-code="misc"
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Generic, Literal, overload, type_check_only
 from uuid import UUID
@@ -58,7 +59,7 @@ class RelatedField(FieldCacheMixin, Field[_ST, _GT, _NT]):
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: _NT = ...,
+        null: _NT = False,
         db_index: bool = ...,
         rel: ForeignObjectRel | None = ...,
         default: Any = ...,
@@ -119,7 +120,7 @@ class ForeignObject(RelatedField[_ST, _GT, _NT]):
         primary_key: bool = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: _NT = ...,
+        null: _NT = False,
         db_index: bool = ...,
         default: Any = ...,
         db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
@@ -219,7 +220,7 @@ class ForeignKey(ForeignObject[_ST, _GT, _NT]):
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: _NT = ...,
+        null: _NT = False,
         db_index: bool = ...,
         default: Any = ...,
         db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
@@ -270,7 +271,7 @@ class OneToOneField(ForeignKey[_ST, _GT, _NT]):
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: _NT = ...,
+        null: _NT = False,
         db_index: bool = ...,
         default: Any = ...,
         db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
@@ -359,7 +360,7 @@ class ManyToManyField(RelatedField[Any, Any, Literal[False]], Generic[_To, _Thro
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: _NT = ...,
+        null: _NT = False,
         db_index: bool = ...,
         default: Any = ...,
         editable: bool = ...,

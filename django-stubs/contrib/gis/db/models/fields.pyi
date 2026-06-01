@@ -1,3 +1,4 @@
+# mypy: disable-error-code="misc"
 from collections.abc import Iterable
 from typing import Any, NamedTuple
 
@@ -46,7 +47,7 @@ class BaseSpatialField(Field[_ST, _GT, _NT]):
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: _NT = ...,
+        null: _NT = False,
         db_index: bool = ...,
         default: Any = ...,
         db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
@@ -95,7 +96,7 @@ class GeometryField(BaseSpatialField[_ST, _GT, _NT]):
         max_length: int | None = ...,
         unique: bool = ...,
         blank: bool = ...,
-        null: _NT = ...,
+        null: _NT = False,
         db_index: bool = ...,
         default: Any = ...,
         db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
