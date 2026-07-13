@@ -720,7 +720,8 @@
         val_str = User.objects.annotate(val=char_subquery).get().val
         reveal_type(val_str)  # N: Revealed type is "str"
 
-        # Subquery with nullable output_field → int | None
+        # Subquery with nullable output_field → int | None (the null=True overload now
+        # propagates the optional get-type through annotate output-field resolution)
         nullable_sub = Subquery(User.objects.filter(pk=OuterRef('pk')).values('id')[:1], output_field=IntegerField(null=True))
         val_nullable = User.objects.annotate(val=nullable_sub).get().val
         reveal_type(val_nullable)  # N: Revealed type is "int | None"

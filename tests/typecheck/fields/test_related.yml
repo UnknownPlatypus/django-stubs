@@ -48,11 +48,15 @@
         from uuid import UUID
         book = Book()
         book.publisher = Publisher()
-        reveal_type(book.publisher_id)  # N: Revealed type is "uuid.UUID"
+        reveal_type(book.publisher_id)
         book.publisher_id = '821850bb-c105-426f-b340-3974419d00ca'
         book.publisher_id = UUID('821850bb-c105-426f-b340-3974419d00ca')
-        book.publisher_id = [1]  # E: Incompatible types in assignment (expression has type "list[int]", variable has type "str | UUID")  [assignment]
-        book.publisher_id = Publisher()  # E: Incompatible types in assignment (expression has type "Publisher", variable has type "str | UUID")  [assignment]
+        book.publisher_id = [1]
+        book.publisher_id = Publisher()
+    out: |
+        main:6: note: Revealed type is "uuid.UUID"
+        main:9: error: Incompatible types in assignment (expression has type "list[int]", variable has type "str | UUID | Combinable")  [assignment]
+        main:10: error: Incompatible types in assignment (expression has type "Publisher", variable has type "str | UUID | Combinable")  [assignment]
     installed_apps:
         - myapp
     files:
@@ -260,7 +264,7 @@
         from myapp2.models import Profile
         reveal_type(Profile().user)  # N: Revealed type is "myapp.models.user.User"
         reveal_type(Profile().user.profile)  # N: Revealed type is "myapp2.models.Profile"
-        reveal_type(Profile.user.field)  # N: Revealed type is "django.db.models.fields.related.OneToOneField[myapp.models.user.User | django.db.models.expressions.Combinable, myapp.models.user.User]"
+        reveal_type(Profile.user.field)  # N: Revealed type is "django.db.models.fields.related.OneToOneField[myapp.models.user.User, myapp.models.user.User]"
     installed_apps:
         - myapp
         - myapp2
@@ -708,9 +712,9 @@
         reveal_type(Author.blogs)  # N: Revealed type is "django.db.models.fields.related_descriptors.ManyToManyDescriptor[myapp.models.Blog, myapp.models.Author_blogs]"
         reveal_type(Author.blogs.through)  # N: Revealed type is "type[myapp.models.Author_blogs]"
         reveal_type(Author().blogs)  # N: Revealed type is "myapp.models.Blog_ManyRelatedManager[myapp.models.Author_blogs]"
-        reveal_type(Blog.publisher)  # N: Revealed type is "django.db.models.fields.related_descriptors.ForwardManyToOneDescriptor[django.db.models.fields.related.ForeignKey[myapp.models.Publisher | django.db.models.expressions.Combinable, myapp.models.Publisher]]"
-        reveal_type(Publisher.profile)  # N: Revealed type is "django.db.models.fields.related_descriptors.ForwardOneToOneDescriptor[django.db.models.fields.related.OneToOneField[myapp.models.Profile | django.db.models.expressions.Combinable, myapp.models.Profile]]"
-        reveal_type(Author.file)  # N: Revealed type is "django.db.models.fields.files.FileDescriptor"
+        reveal_type(Blog.publisher)  # N: Revealed type is "django.db.models.fields.related_descriptors.ForwardManyToOneDescriptor[django.db.models.fields.related.ForeignKey[myapp.models.Publisher, myapp.models.Publisher]]"
+        reveal_type(Publisher.profile)  # N: Revealed type is "django.db.models.fields.related_descriptors.ForwardOneToOneDescriptor[django.db.models.fields.related.OneToOneField[myapp.models.Profile, myapp.models.Profile]]"
+        reveal_type(Author.file)  # N: Revealed type is "django.db.models.fields._FieldDescriptor[django.db.models.fields.files.FileField[Any, django.db.models.fields.files.FieldFile]]"
 
     installed_apps:
         - myapp
@@ -899,8 +903,8 @@
                 from typing_extensions import TypeVar
                 from django.db import models
 
-                _ST = TypeVar("_ST", contravariant=True)
-                _GT = TypeVar("_GT", covariant=True)
+                _ST = TypeVar("_ST", contravariant=True, default=Any)
+                _GT = TypeVar("_GT", covariant=True, default=Any)
 
                 class FK(models.ForeignKey[_ST, _GT]):
                     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -1315,7 +1319,7 @@
         main:17: note: Revealed type is "myapp.models.Other"
         main:18: note: Revealed type is "int"
         main:20: note: Revealed type is "type[myapp.models.MyModel_auto_through]"
-        main:21: note: Revealed type is "django.db.models.fields.related_descriptors.ForwardManyToOneDescriptor[django.db.models.fields.related.ForeignKey[myapp.models.MyModel | django.db.models.expressions.Combinable, myapp.models.MyModel]]"
+        main:21: note: Revealed type is "django.db.models.fields.related_descriptors.ForwardManyToOneDescriptor[django.db.models.fields.related.ForeignKey[myapp.models.MyModel, myapp.models.MyModel]]"
         main:22: note: Revealed type is "django.db.models.manager.Manager[myapp.models.MyModel_auto_through]"
         main:24: note: Revealed type is "type[myapp.models.MyModel_other_again]"
         main:25: note: Revealed type is "django.db.models.fields.related_descriptors.ManyToManyDescriptor[myapp.models.MyModel, myapp.models.MyModel_auto_through]"
@@ -1328,13 +1332,13 @@
         main:34: note: Revealed type is "django.db.models.manager.Manager[myapp.models.MyModel_auto_through]"
         main:36: note: Revealed type is "myapp.models.Other_ManyRelatedManager[myapp.models.MyModel_auto_through]"
         main:37: note: Revealed type is "type[myapp.models.MyModel_auto_through]"
-        main:38: note: Revealed type is "django.db.models.fields._FieldDescriptor[django.db.models.fields.BigAutoField[float | int | str | django.db.models.expressions.Combinable | None, int]]"
+        main:38: note: Revealed type is "django.db.models.fields._FieldDescriptor[django.db.models.fields.BigAutoField[int | str | None, int]]"
         main:39: note: Revealed type is "myapp.models.Other_ManyRelatedManager[myapp.models.MyModel_other_again]"
         main:40: note: Revealed type is "type[myapp.models.MyModel_other_again]"
-        main:41: note: Revealed type is "django.db.models.fields._FieldDescriptor[django.db.models.fields.BigAutoField[float | int | str | django.db.models.expressions.Combinable | None, int]]"
+        main:41: note: Revealed type is "django.db.models.fields._FieldDescriptor[django.db.models.fields.BigAutoField[int | str | None, int]]"
         main:42: note: Revealed type is "myapp.models.Other_ManyRelatedManager[myapp.models.CustomThrough]"
         main:43: note: Revealed type is "type[myapp.models.CustomThrough]"
-        main:44: note: Revealed type is "django.db.models.fields._FieldDescriptor[django.db.models.fields.BigAutoField[float | int | str | django.db.models.expressions.Combinable, int]]"
+        main:44: note: Revealed type is "django.db.models.fields._FieldDescriptor[django.db.models.fields.BigAutoField[int | str, int]]"
     installed_apps:
         -   myapp
     files:
