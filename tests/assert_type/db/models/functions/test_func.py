@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from typing import assert_type
+
 from django.db.models import BinaryField
 from django.db.models.fields import CharField
 from django.db.models.functions import Left, Right, Substr
-from typing_extensions import assert_type
 
 
 def func_resolve_output_field() -> None:
@@ -19,29 +20,29 @@ def func_resolve_output_field() -> None:
     bin_right = Right("username", 5, output_field=BinaryField())
     str_right = Right("username", 5)  # Default to `CharField` per `Right.output_field`
 
-    assert_type(
+    assert_type(  # False positive -> # ty: ignore[type-assertion-failure]  # pyrefly: ignore[assert-type]
         bin_sub,
         Substr[BinaryField[bytes | bytearray | memoryview[int], bytes | memoryview[int]]],
     )
     assert_type(str_sub, Substr[CharField[str | int, str]])
 
-    assert_type(
+    assert_type(  # False positive -> # ty: ignore[type-assertion-failure]  # pyrefly: ignore[assert-type]
         bin_left,
         Left[BinaryField[bytes | bytearray | memoryview[int], bytes | memoryview[int]]],
     )
     assert_type(str_left, Left[CharField[str | int, str]])
 
-    assert_type(
+    assert_type(  # False positive -> # ty: ignore[type-assertion-failure]  # pyrefly: ignore[assert-type]
         bin_right,
         Right[BinaryField[bytes | bytearray | memoryview[int], bytes | memoryview[int]]],
     )
     assert_type(str_right, Right[CharField[str | int, str]])
 
-    expect_func_binary(bin_sub)
+    expect_func_binary(bin_sub)  # False positive -> # ty: ignore[invalid-argument-type]
     expect_func_binary(str_sub)  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]  # pyrefly: ignore[bad-argument-type]  # ty: ignore[invalid-argument-type]
 
-    expect_func_binary(bin_left)
+    expect_func_binary(bin_left)  # False positive -> # ty: ignore[invalid-argument-type]
     expect_func_binary(str_left)  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]  # pyrefly: ignore[bad-argument-type]  # ty: ignore[invalid-argument-type]
 
-    expect_func_binary(bin_right)
+    expect_func_binary(bin_right)  # False positive -> # ty: ignore[invalid-argument-type]
     expect_func_binary(str_right)  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]  # pyrefly: ignore[bad-argument-type]  # ty: ignore[invalid-argument-type]

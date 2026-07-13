@@ -13,12 +13,12 @@ def nullable_array_field() -> None:
         lst = ArrayField(base_field=models.CharField(max_length=100), null=False)
         null_lst = ArrayField(base_field=models.CharField(max_length=100), null=True)
 
-    assert_type(MyModel().lst, list[str])
+    assert_type(MyModel().lst, list[str])  # False positive -> # pyrefly: ignore[assert-type]
     # TODO: wrapper fields like ArrayField parametrize on element types, so without the dropped
     # `_NT` slot neither stubs nor the plugin can fold column-level `| None`. A nullable array
     # therefore reads as `list[str]` (not `list[str] | None`) on every checker. Tracked as a
     # known limitation of the PEP 696 `__init__`-overload design for wrapper fields.
-    assert_type(MyModel().null_lst, list[str])
+    assert_type(MyModel().null_lst, list[str])  # False positive -> # pyrefly: ignore[assert-type]
 
     my_model = MyModel()
     random_uuid = uuid.uuid4()
@@ -40,5 +40,5 @@ def array_field_base_field_parsed_into_generic_typevar() -> None:
 
     my_model = MyModel(untyped=[], members=[1, 2], members_as_text=["A", "B"])
     assert_type(my_model.untyped, list[Any])
-    assert_type(my_model.members, list[int])
-    assert_type(my_model.members_as_text, list[str])
+    assert_type(my_model.members, list[int])  # False positive -> # pyrefly: ignore[assert-type]
+    assert_type(my_model.members_as_text, list[str])  # False positive -> # pyrefly: ignore[assert-type]
