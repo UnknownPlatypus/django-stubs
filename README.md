@@ -413,17 +413,55 @@ Django `models.Field` (and subclasses) are generic types with two parameters:
 - `_ST`: type that can be used when setting a value
 - `_GT`: type that will be returned when getting a value
 
-When you create a subclass, you have two options depending on how strict you want
-the type to be for consumers of your custom field.
+The `null=...` and `primary_key=...` flags are resolved at the call site by the
+fields' constructor overloads: `IntegerField(null=True)` is an
+`IntegerField[float | int | str | None, int | None]`, and
+`IntegerField(primary_key=True)` accepts `None` on assignment (the
+`obj.pk = None` clone idiom) while still reading as `int`. This works on every
+type checker, without the mypy plugin.
+
+When you create a subclass, you have several options depending on how strict you
+want the type to be for consumers of your custom field.
+
+0. Bare subclass — works out of the box:
+
+```python
+from django.db import models
+
+class MyIntegerField(models.IntegerField): ...
+
+class User(models.Model):
+    my_field = MyIntegerField()
+    my_nullable = MyIntegerField(null=True)
+
+reveal_type(User().my_field)  # N: Revealed type is "int"
+```
+
+A bare subclass is pinned to its parent's default types, so `null=True` cannot
+be reflected in the subclass's type by stubs alone: with the mypy plugin
+`User().my_nullable` is precisely inferred as `int | None`; other type checkers
+fall back to the non-null defaults (`int`) without raising false errors. For
+cross-checker precision on nullable fields, pin a dedicated subclass:
+
+```python
+class MyNullableIntegerField(MyIntegerField[float | int | str | None, int | None]): ...
+```
+
+> [!IMPORTANT]
+> Each `TypeVar` you forward to `models.Field` (or one of its subclasses) **must**
+> declare a `default=` value (PEP 696). Without a default, mypy will not be able
+> to instantiate your field without explicit type arguments and the plugin will
+> not be able to infer the right types for your model attributes.
 
 1. Generic subclass:
 
 ```python
-from typing import TypeVar, reveal_type
+from typing import reveal_type
+from typing_extensions import TypeVar  # for `default=` (PEP 696)
 from django.db import models
 
-_ST = TypeVar("_ST", contravariant=True)
-_GT = TypeVar("_GT", covariant=True)
+_ST = TypeVar("_ST", contravariant=True, default=float | int | str)
+_GT = TypeVar("_GT", covariant=True, default=int)
 
 class MyIntegerField(models.IntegerField[_ST, _GT]):
     ...
@@ -456,6 +494,58 @@ User().my_field = "12" # E: Incompatible types in assignment (expression has typ
 ```
 
 See mypy section on [generic classes subclasses](https://mypy.readthedocs.io/en/stable/generics.html#defining-subclasses-of-generic-classes).
+
+#### `null=True` on a custom field, for every type checker
+
+To make `MyIntegerField(null=True)` resolve precisely on all type checkers
+(not only mypy with the plugin), redeclare constructor overloads with
+self-annotations, the same mechanism the bundled stubs use. The
+`django_stubs_ext.FieldInitKwargs` TypedDict carries every keyword argument
+shared by all `models.Field` constructors (it is generic over the type
+`db_default` accepts), so the overloads stay short while keeping full keyword
+argument checking:
+
+```python
+from typing import Any, Literal, overload
+from typing_extensions import TypeVar, Unpack, assert_type
+from django.db import models
+from django_stubs_ext import FieldInitKwargs
+
+_ST = TypeVar("_ST", contravariant=True, default=float | int | str)
+_GT = TypeVar("_GT", covariant=True, default=int)
+
+class MyIntegerField(models.IntegerField[_ST, _GT]):
+    @overload
+    def __init__(  # nullable: read and write accept None
+        self: MyIntegerField[float | int | str | None, int | None],
+        verbose_name: str | None = None,
+        name: str | None = None,
+        *,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[float | int | str | None]],
+    ) -> None: ...
+    @overload
+    def __init__(  # fallback: dynamic flags keep the class defaults
+        self,
+        verbose_name: str | None = None,
+        name: str | None = None,
+        *,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[float | int | str]],
+    ) -> None: ...
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+class User(models.Model):
+    custom_int = MyIntegerField(null=False)
+    custom_int_nullable = MyIntegerField(null=True)
+
+assert_type(User().custom_int, int)
+assert_type(User().custom_int_nullable, int | None)
+```
+
+If your field adds its own constructor arguments, declare them explicitly next
+to `null` in both overloads.
 
 ## Related projects
 
