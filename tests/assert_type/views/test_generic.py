@@ -11,7 +11,8 @@ from django.views.generic.edit import DeleteView
 from django.views.generic.list import ListView
 
 
-class MyModel(models.Model): ...
+class MyModel(models.Model):
+    pass
 
 
 class MyDetailView(SingleObjectMixin[MyModel]): ...
