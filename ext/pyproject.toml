@@ -33,7 +33,8 @@ classifiers = [
 ]
 dependencies = [
   "django",
-  "typing-extensions",
+  # 4.10 is the floor for `TypedDict(..., closed=True)` (PEP 728) used by FieldInitKwargs
+  "typing-extensions>=4.10.0",
 ]
 
 [project.urls]
