@@ -49,6 +49,10 @@
         MyModel._meta.get_field('non_existant')  # E: MyModel has no field named 'non_existant'  [misc]
 
         reveal_type(MyModel._meta.get_field('field'))  # N: Revealed type is "django.contrib.postgres.fields.array.ArrayField[typing.Sequence[float | int | str] | django.db.models.expressions.Combinable, list[int]]"
+        # `null=True` on a wrapper field (ArrayField parametrizes itself on element types, not its
+        # own set/get types) can no longer add column-level `| None` without the dropped `_NT` slot,
+        # so this matches the non-null reveal above — consistent with pyright/ty/pyrefly.
+        reveal_type(MyModel._meta.get_field('null_field'))  # N: Revealed type is "django.contrib.postgres.fields.array.ArrayField[typing.Sequence[float | int | str] | django.db.models.expressions.Combinable, list[int]]"
 
         field: str
         reveal_type(MyModel._meta.get_field(field))  # N: Revealed type is "django.db.models.fields.Field[Any, Any] | django.db.models.fields.reverse_related.ForeignObjectRel"
@@ -67,6 +71,7 @@
 
                 class MyModel(AbstractModel):
                     field = ArrayField(models.IntegerField(), default=[])
+                    null_field = ArrayField(models.IntegerField(), default=[], null=True)
 
 -   case: get_field_reverse_relations
     main: |
