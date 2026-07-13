@@ -5,21 +5,19 @@ from typing import Any, ClassVar
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.models import Model, lookups
 from django.db.models.expressions import Expression
-from django.db.models.fields import TextField
+from django.db.models.fields import Field, TextField
+from django.db.models.fields.mixins import CheckFieldDefaultMixin
 from django.db.models.lookups import FieldGetDbPrepValueMixin, PostgresOperatorLookup, Transform
 from django.db.models.sql.compiler import SQLCompiler, _AsSqlType
 from django.utils.functional import _StrOrPromise
-from typing_extensions import Self, TypeVar, override
+from typing_extensions import Self, TypeVar, Unpack, override
 
-from . import Field
-from .mixins import CheckFieldDefaultMixin
+from django_stubs_ext import FieldInitKwargs
 
-# __set__ value type
-_ST = TypeVar("_ST", contravariant=True, default=Any)
-# __get__ return type
-_GT = TypeVar("_GT", covariant=True, default=Any)
+_ST_JSON = TypeVar("_ST_JSON", contravariant=True, default=Any)
+_GT_JSON = TypeVar("_GT_JSON", covariant=True, default=Any)
 
-class JSONField(CheckFieldDefaultMixin, Field[_ST, _GT]):
+class JSONField(CheckFieldDefaultMixin, Field[_ST_JSON, _GT_JSON]):
     encoder: type[json.JSONEncoder] | None
     decoder: type[json.JSONDecoder] | None
     def __init__(
@@ -28,7 +26,10 @@ class JSONField(CheckFieldDefaultMixin, Field[_ST, _GT]):
         name: str | None = None,
         encoder: type[json.JSONEncoder] | None = None,
         decoder: type[json.JSONDecoder] | None = None,
-        **kwargs: Any,
+        *,
+        null: bool = False,
+        # db_default stays `Any`: empty-container defaults otherwise false-positive
+        **kwargs: Unpack[FieldInitKwargs[Any]],
     ) -> None: ...
     def from_db_value(self, value: str | None, expression: Expression, connection: BaseDatabaseWrapper) -> Any: ...
     @override

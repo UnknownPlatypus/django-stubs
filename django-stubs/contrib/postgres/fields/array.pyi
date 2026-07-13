@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from typing import Any, ClassVar
 
 from _typeshed import Unused
@@ -7,57 +7,36 @@ from django.core.checks import CheckMessage
 from django.core.validators import _ValidatorCallable
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.models import Field
-from django.db.models.expressions import Combinable, Expression
-from django.db.models.fields import NOT_PROVIDED, _ErrorMessagesDict, _ErrorMessagesMapping
+from django.db.models.expressions import Combinable
+from django.db.models.fields import _ErrorMessagesDict
 from django.db.models.fields.mixins import CheckFieldDefaultMixin
 from django.db.models.lookups import Transform
-from django.utils.choices import _Choices
 from django.utils.functional import _StrOrPromise
-from typing_extensions import TypeVar, override
+from typing_extensions import TypeVar, Unpack, override
 
-# __set__ value type
-_ST = TypeVar("_ST")
-# __get__ return type
-_GT = TypeVar("_GT")
+from django_stubs_ext import FieldInitKwargs
 
-class ArrayField(CheckPostgresInstalledMixin, CheckFieldDefaultMixin, Field[_ST, _GT]):
-    _pyi_private_set_type: Sequence[Any] | Combinable
-    _pyi_private_get_type: list[Any]
+_ST_Array = TypeVar("_ST_Array", contravariant=True, default=Any)
+_GT_Array = TypeVar("_GT_Array", covariant=True, default=Any)
 
+class ArrayField(
+    CheckPostgresInstalledMixin, CheckFieldDefaultMixin, Field[Sequence[_ST_Array] | Combinable, list[_GT_Array]]
+):
     empty_strings_allowed: bool
     default_error_messages: ClassVar[_ErrorMessagesDict]
-    base_field: Field
+    base_field: Field[_ST_Array, _GT_Array]
     size: int | None
     default_validators: list[_ValidatorCallable]
     from_db_value: Any
     def __init__(
         self,
-        base_field: Field,
+        base_field: Field[_ST_Array, _GT_Array],
         size: int | None = None,
         *,
-        verbose_name: _StrOrPromise | None = ...,
-        name: str | None = ...,
-        primary_key: bool = ...,
-        max_length: int | None = ...,
-        unique: bool = ...,
-        blank: bool = ...,
-        null: bool = ...,
-        db_index: bool = ...,
-        default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
-        editable: bool = ...,
-        auto_created: bool = ...,
-        serialize: bool = ...,
-        unique_for_date: str | None = ...,
-        unique_for_month: str | None = ...,
-        unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
-        help_text: _StrOrPromise = ...,
-        db_column: str | None = ...,
-        db_comment: str | None = ...,
-        db_tablespace: str | None = ...,
-        validators: Iterable[_ValidatorCallable] = ...,
-        error_messages: _ErrorMessagesMapping | None = ...,
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[list[_ST_Array]]],
     ) -> None: ...
     @override
     def check(self, **kwargs: Any) -> list[CheckMessage]: ...

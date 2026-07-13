@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, Generic, Literal, overload
+from typing import Any, Generic, Literal, overload, type_check_only
 from uuid import UUID
 
 from django import forms
@@ -24,7 +24,9 @@ from django.db.models.sql.where import WhereNode
 from django.forms.widgets import Widget
 from django.utils.choices import _Choices
 from django.utils.functional import _StrOrPromise, cached_property
-from typing_extensions import Self, TypeVar, override
+from typing_extensions import Self, TypeVar, Unpack, override
+
+from django_stubs_ext import FieldInitKwargs
 
 RECURSIVE_RELATIONSHIP_CONSTANT: Literal["self"]
 
@@ -34,9 +36,9 @@ def lazy_related_operation(
 ) -> None: ...
 
 # __set__ value type
-_ST = TypeVar("_ST", contravariant=True)
+_ST = TypeVar("_ST", contravariant=True, default=Any)
 # __get__ return type
-_GT = TypeVar("_GT", covariant=True, default=_ST)
+_GT = TypeVar("_GT", covariant=True, default=Any)
 
 class RelatedField(FieldCacheMixin, Field[_ST, _GT]):
     one_to_many: bool
@@ -53,30 +55,10 @@ class RelatedField(FieldCacheMixin, Field[_ST, _GT]):
         related_query_name: str | None = None,
         limit_choices_to: _AllLimitChoicesTo | None = None,
         *,
-        verbose_name: _StrOrPromise | None = ...,
-        name: str | None = ...,
-        primary_key: bool = ...,
-        max_length: int | None = ...,
-        unique: bool = ...,
-        blank: bool = ...,
-        null: bool = ...,
-        db_index: bool = ...,
-        rel: ForeignObjectRel | None = ...,
-        default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
-        editable: bool = ...,
-        serialize: bool = ...,
-        unique_for_date: str | None = ...,
-        unique_for_month: str | None = ...,
-        unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
-        help_text: _StrOrPromise = ...,
-        db_column: str | None = ...,
-        db_tablespace: str | None = ...,
-        auto_created: bool = ...,
-        validators: Iterable[_ValidatorCallable] = ...,
-        error_messages: _ErrorMessagesMapping | None = ...,
-        db_comment: str | None = ...,
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST]],
     ) -> None: ...
     @cached_property
     @override
@@ -133,16 +115,22 @@ class ForeignObject(RelatedField[_ST, _GT]):
         error_messages: _ErrorMessagesMapping | None = ...,
         db_comment: str | None = ...,
     ) -> None: ...
+    @type_check_only
+    @override
+    def __set__(self, instance: Any, value: _ST | Combinable) -> None: ...
     # class access
     @overload
+    @type_check_only
     @override
     def __get__(self, instance: None, owner: Any) -> ForwardManyToOneDescriptor[Self]: ...
     # Model instance access
     @overload
+    @type_check_only
     @override
     def __get__(self, instance: Model, owner: Any) -> _GT: ...
     # non-Model instances
     @overload
+    @type_check_only
     @override
     def __get__(self, instance: Any, owner: Any) -> Self: ...
     def resolve_related_fields(self) -> list[tuple[Field, Field]]: ...
@@ -176,9 +164,6 @@ class ForeignObject(RelatedField[_ST, _GT]):
     requires_unique_target: bool
 
 class ForeignKey(ForeignObject[_ST, _GT]):
-    _pyi_private_set_type: Any | Combinable
-    _pyi_private_get_type: Any
-
     descriptor_class: type[ForeignKeyDeferredAttribute]
     remote_field: ManyToOneRel
     rel_class: type[ManyToOneRel]
@@ -194,30 +179,11 @@ class ForeignKey(ForeignObject[_ST, _GT]):
         to_field: str | None = None,
         db_constraint: bool = True,
         *,
-        swappable: bool = ...,
-        verbose_name: _StrOrPromise | None = ...,
-        name: str | None = ...,
-        primary_key: bool = ...,
-        max_length: int | None = ...,
-        unique: bool = ...,
-        blank: bool = ...,
-        null: bool = ...,
-        db_index: bool = ...,
-        default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
-        editable: bool = ...,
-        auto_created: bool = ...,
-        serialize: bool = ...,
-        unique_for_date: str | None = ...,
-        unique_for_month: str | None = ...,
-        unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
-        help_text: _StrOrPromise = ...,
-        db_column: str | None = ...,
-        db_tablespace: str | None = ...,
-        validators: Iterable[_ValidatorCallable] = ...,
-        error_messages: _ErrorMessagesMapping | None = ...,
-        db_comment: str | None = ...,
+        swappable: bool = True,
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST]],
     ) -> None: ...
     @classmethod
     def __class_getitem__(cls, *args: Any, **kwargs: Any) -> type[Self]: ...
@@ -251,9 +217,6 @@ class ForeignKey(ForeignObject[_ST, _GT]):
     def get_attname_column(self) -> tuple[str, str]: ...  # type: ignore[override]
 
 class OneToOneField(ForeignKey[_ST, _GT]):
-    _pyi_private_set_type: Any | Combinable
-    _pyi_private_get_type: Any
-
     remote_field: OneToOneRel
     rel_class: type[OneToOneRel]
     def __init__(
@@ -262,46 +225,33 @@ class OneToOneField(ForeignKey[_ST, _GT]):
         on_delete: Callable[..., None],
         to_field: str | None = None,
         *,
-        swappable: bool = ...,
-        related_name: str | None = ...,
-        related_query_name: str | None = ...,
-        limit_choices_to: _AllLimitChoicesTo | None = ...,
-        parent_link: bool = ...,
-        db_constraint: bool = ...,
-        verbose_name: _StrOrPromise | None = ...,
-        name: str | None = ...,
-        primary_key: bool = ...,
-        max_length: int | None = ...,
-        unique: bool = ...,
-        blank: bool = ...,
-        null: bool = ...,
-        db_index: bool = ...,
-        default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
-        editable: bool = ...,
-        auto_created: bool = ...,
-        serialize: bool = ...,
-        unique_for_date: str | None = ...,
-        unique_for_month: str | None = ...,
-        unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
-        help_text: _StrOrPromise = ...,
-        db_column: str | None = ...,
-        db_tablespace: str | None = ...,
-        validators: Iterable[_ValidatorCallable] = ...,
-        error_messages: _ErrorMessagesMapping | None = ...,
-        db_comment: str | None = ...,
+        swappable: bool = True,
+        related_name: str | None = None,
+        related_query_name: str | None = None,
+        limit_choices_to: _AllLimitChoicesTo | None = None,
+        parent_link: bool = False,
+        db_constraint: bool = True,
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST]],
     ) -> None: ...
+    @type_check_only
+    @override
+    def __set__(self, instance: Any, value: _ST | Combinable) -> None: ...
     # class access
     @overload
+    @type_check_only
     @override
     def __get__(self, instance: None, owner: Any) -> ForwardOneToOneDescriptor[Self]: ...
     # Model instance access
     @overload
+    @type_check_only
     @override
     def __get__(self, instance: Model, owner: Any) -> _GT: ...
     # non-Model instances
     @overload
+    @type_check_only
     @override
     def __get__(self, instance: Any, owner: Any) -> Self: ...
     forward_related_accessor_class: type[ForwardOneToOneDescriptor]
