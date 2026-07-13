@@ -187,6 +187,10 @@ ignore = [
 "ext/tests/*.py" = ["INP001"]
 "setup.py" = ["INP001"]
 "tests/assert_type/*.py" = ["B", "UP013"]
+# assert_type fixtures carry per-checker ignore comments (`# pyright: ... # pyrefly: ... # ty: ...`)
+# that must stay on a single line so each checker's directive lands on the line it reports;
+# these legitimately exceed the line length.
+"tests/assert_type/**/*.py" = ["E501"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "_typeshed.Self".msg = "Use typing_extensions.Self (PEP 673) instead. If you type a metaclass, add a noqa"
