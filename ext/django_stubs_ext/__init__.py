@@ -7,12 +7,14 @@ from .aliases import StrOrPromise, StrPromise
 from .aliases import ValuesQuerySet as ValuesQuerySet
 from .annotations import Annotations as Annotations
 from .annotations import WithAnnotations as WithAnnotations
+from .fields import FieldInitKwargs as FieldInitKwargs
 from .patch import monkeypatch as monkeypatch
 from .types import AnyAttrAllowed as AnyAttrAllowed
 
 __all__ = [
     "Annotations",
     "AnyAttrAllowed",
+    "FieldInitKwargs",
     "FieldOpts",
     "FieldsetSpec",
     "QuerySetAny",
