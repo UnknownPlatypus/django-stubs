@@ -1,19 +1,19 @@
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from typing import Any, Protocol, Self, overload, type_check_only
 
 from _typeshed import StrPath
 from django.core.files.base import File
 from django.core.files.images import ImageFile
 from django.core.files.storage import Storage
-from django.core.validators import _ValidatorCallable
 from django.db.models.base import Model
-from django.db.models.expressions import Expression
-from django.db.models.fields import NOT_PROVIDED, Field, _ErrorMessagesMapping
+from django.db.models.fields import _ST, Field, _FieldDescriptor
 from django.db.models.query_utils import DeferredAttribute
 from django.db.models.utils import AltersData
-from django.utils.choices import _Choices
+from django.utils._os import _PathCompatible
 from django.utils.functional import _StrOrPromise
-from typing_extensions import TypeVar, override
+from typing_extensions import TypeVar, Unpack, override
+
+from django_stubs_ext import FieldInitKwargs
 
 class FieldFile(File[Any], AltersData):
     instance: Model
@@ -56,7 +56,10 @@ _M = TypeVar("_M", bound=Model, contravariant=True)
 class _UploadToCallable(Protocol[_M]):
     def __call__(self, instance: _M, filename: str, /) -> StrPath: ...
 
-class FileField(Field[Any, Any]):
+# __get__ return type
+_GT_File = TypeVar("_GT_File", covariant=True, default=FieldFile)
+
+class FileField(Field[_ST, _GT_File]):
     attr_class: type[FieldFile]
     descriptor_class: type[FileDescriptor]
     storage: Storage
@@ -68,37 +71,24 @@ class FileField(Field[Any, Any]):
         upload_to: StrPath | _UploadToCallable[Any] = "",
         storage: Storage | Callable[[], Storage] | None = None,
         *,
-        max_length: int | None = ...,
-        unique: bool = ...,
-        blank: bool = ...,
-        null: bool = ...,
-        db_index: bool = ...,
-        default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | str = ...,
-        editable: bool = ...,
-        auto_created: bool = ...,
-        serialize: bool = ...,
-        unique_for_date: str | None = ...,
-        unique_for_month: str | None = ...,
-        unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
-        help_text: _StrOrPromise = ...,
-        db_column: str | None = ...,
-        db_comment: str | None = ...,
-        db_tablespace: str | None = ...,
-        validators: Iterable[_ValidatorCallable] = ...,
-        error_messages: _ErrorMessagesMapping | None = ...,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST]],
     ) -> None: ...
+    # At runtime, FileDescriptor.__get__ ALWAYS returns a FieldFile even when the underlying database value is NULL.
+    # It wraps None in FieldFile(instance, field, name=None).
     # class access
     @overload
+    @type_check_only
     @override
-    def __get__(self, instance: None, owner: Any) -> FileDescriptor: ...
-    # Model instance access
+    def __get__(self, instance: None, owner: Any) -> _FieldDescriptor[Self]: ...
+    # Model instance access — null=True does NOT add `| None`
     @overload
+    @type_check_only
     @override
-    def __get__(self, instance: Model, owner: Any) -> FieldFile: ...
+    def __get__(self, instance: Model, owner: Any) -> _GT_File: ...
     # non-Model instances
     @overload
+    @type_check_only
     @override
     def __get__(self, instance: Any, owner: Any) -> Self: ...
     @override
@@ -117,7 +107,9 @@ class ImageFieldFile(ImageFile, FieldFile):
     @override
     def delete(self, save: bool = True) -> None: ...
 
-class ImageField(FileField):
+_GT_ImageFile = TypeVar("_GT_ImageFile", covariant=True, default=ImageFieldFile)
+
+class ImageField(FileField[_ST, _GT_ImageFile]):
     attr_class: type[ImageFieldFile]
     descriptor_class: type[ImageFileDescriptor]
     def __init__(
@@ -126,18 +118,8 @@ class ImageField(FileField):
         name: str | None = None,
         width_field: str | None = None,
         height_field: str | None = None,
-        **kwargs: Any,
+        *,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST]],
     ) -> None: ...
-    # class access
-    @overload
-    @override
-    def __get__(self, instance: None, owner: Any) -> ImageFileDescriptor: ...
-    # Model instance access
-    @overload
-    @override
-    def __get__(self, instance: Model, owner: Any) -> ImageFieldFile: ...
-    # non-Model instances
-    @overload
-    @override
-    def __get__(self, instance: Any, owner: Any) -> Self: ...
     def update_dimension_fields(self, instance: Model, force: bool = False, *args: Any, **kwargs: Any) -> None: ...

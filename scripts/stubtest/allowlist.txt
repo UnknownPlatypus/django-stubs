@@ -278,9 +278,7 @@ django.forms.models.modelformset_factory
 # Field.__get__/__set__ are stub-only for the mypy plugin, they don't exist at runtime
 django.contrib.contenttypes.fields.GenericForeignKey.__get__
 django.db.models.fields.Field.__get__
-django.db.models.fields.Field.__set__
 django.db.models.fields.files.FileField.__get__
-django.db.models.fields.files.ImageField.__get__
 django.db.models.fields.related.ForeignObject.__get__
 django.db.models.fields.related.ManyToManyField.__get__
 django.db.models.fields.related.OneToOneField.__get__
@@ -293,3 +291,24 @@ django.utils.functional.LazyObject.__hash__
 django.utils.functional.LazyObject.__iter__
 django.utils.functional.LazyObject.__len__
 django.utils.functional.LazyObject.__str__
+
+# Field constructors factor their shared kwargs into `**kwargs: Unpack[FieldInitKwargs[...]]`
+# (django_stubs_ext.fields.FieldInitKwargs). stubtest cannot expand Unpack[TypedDict]
+# (python/mypy#17675 area): it sees a bare **kwargs and reports the TypedDict members as
+# missing parameters. Only classes whose runtime __init__ has no **kwargs (Field itself and
+# fields inheriting its fully-explicit signature) trip this; the members are still checked
+# against runtime through the yml/assert_type suites.
+django.db.models.fields.Field.__init__
+django.db.models.fields.IntegerField.__init__
+django.db.models.fields.SmallIntegerField.__init__
+django.db.models.fields.BigIntegerField.__init__
+django.db.models.fields.PositiveIntegerField.__init__
+django.db.models.fields.PositiveSmallIntegerField.__init__
+django.db.models.fields.PositiveBigIntegerField.__init__
+django.db.models.fields.FloatField.__init__
+django.db.models.fields.BooleanField.__init__
+django.db.models.fields.DurationField.__init__
+# runtime kw-only max_length/db_index live in the shared TypedDict, so the stub cannot redeclare them
+django.db.models.fields.SlugField.__init__
+# runtime has a *args passthrough the stub deliberately narrows away
+django.db.models.fields.GenericIPAddressField.__init__
