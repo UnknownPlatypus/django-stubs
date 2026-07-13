@@ -7,16 +7,11 @@ from django.db.models.expressions import Combinable, CombinedExpression, Func, V
 from django.db.models.lookups import Lookup
 from django.db.models.sql.compiler import SQLCompiler, _AsSqlType
 from psycopg.adapt import Dumper
-from typing_extensions import TypeVar, override
+from typing_extensions import override
 
 from .utils import CheckPostgresInstalledMixin
 
 _Expression: TypeAlias = str | Combinable | SearchQueryCombinable
-
-# __set__ value type
-_ST = TypeVar("_ST", contravariant=True)
-# __get__ return type
-_GT = TypeVar("_GT", covariant=True)
 
 class UTF8Dumper(Dumper):
     @override
@@ -36,8 +31,8 @@ class SearchVectorExact(Lookup):
     @override
     def as_sql(self, qn: SQLCompiler, connection: BaseDatabaseWrapper) -> _AsSqlType: ...
 
-class SearchVectorField(CheckPostgresInstalledMixin, Field[_ST, _GT]): ...
-class SearchQueryField(CheckPostgresInstalledMixin, Field[_ST, _GT]): ...
+class SearchVectorField(CheckPostgresInstalledMixin, Field[Any, Any]): ...
+class SearchQueryField(CheckPostgresInstalledMixin, Field[Any, Any]): ...
 
 class SearchConfig(Expression):
     config: _Expression | None
@@ -52,7 +47,7 @@ class SearchVector(SearchVectorCombinable, Func):
     config: _Expression | None
     function: str
     arg_joiner: str
-    output_field: ClassVar[SearchVectorField[Any, Any]]
+    output_field: ClassVar[SearchVectorField]
     def __init__(
         self, *expressions: _Expression, config: _Expression | None = None, weight: Any | None = None
     ) -> None: ...
@@ -84,7 +79,7 @@ class SearchQueryCombinable:
     def __rand__(self, other: SearchQueryCombinable) -> Self: ...
 
 class SearchQuery(SearchQueryCombinable, Func):  # type: ignore[misc]
-    output_field: ClassVar[SearchQueryField[Any, Any]]
+    output_field: ClassVar[SearchQueryField]
     SEARCH_TYPES: dict[str, str]
     def __init__(
         self,
