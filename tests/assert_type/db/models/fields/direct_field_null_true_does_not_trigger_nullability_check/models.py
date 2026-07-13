@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from typing import assert_type
+
 from django.db import models
 from django.db.models import IntegerField
 from django.db.models.expressions import OuterRef, Subquery
-from typing_extensions import assert_type
 
 
 class Article(models.Model):
@@ -12,7 +13,7 @@ class Article(models.Model):
 
 def direct_field_null_true_does_not_trigger_nullability_check() -> None:
     null_field = models.IntegerField(null=True)
-    assert_type(null_field, IntegerField[float | int | str | None, int | None])
+    assert_type(null_field, IntegerField[float | int | str | None, int | None])  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
 
     not_null_field = models.IntegerField(null=False)
     assert_type(not_null_field, IntegerField[float | int | str, int])
