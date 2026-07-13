@@ -427,17 +427,55 @@ Django `models.Field` (and subclasses) are generic types with two parameters:
 - `_ST`: type that can be used when setting a value
 - `_GT`: type that will be returned when getting a value
 
-When you create a subclass, you have two options depending on how strict you want
-the type to be for consumers of your custom field.
+The `null=...` and `primary_key=...` flags are resolved at the call site by the
+fields' constructor overloads: `IntegerField(null=True)` is an
+`IntegerField[float | int | str | None, int | None]`, and
+`IntegerField(primary_key=True)` accepts `None` on assignment (the
+`obj.pk = None` clone idiom) while still reading as `int`. This works on every
+type checker, without the mypy plugin.
+
+When you create a subclass, you have several options depending on how strict you
+want the type to be for consumers of your custom field.
+
+0. Bare subclass — works out of the box:
+
+```python
+from django.db import models
+
+class MyIntegerField(models.IntegerField): ...
+
+class User(models.Model):
+    my_field = MyIntegerField()
+    my_nullable = MyIntegerField(null=True)
+
+reveal_type(User().my_field)  # N: Revealed type is "int"
+```
+
+A bare subclass is **best effort**: it is pinned to its parent's default types,
+so `null=True` cannot be reflected in the subclass's type by stubs alone. With
+the mypy plugin `User().my_nullable` is still precisely inferred as `int | None`;
+every other type checker falls back to the non-null defaults (`int`) without
+raising false errors. Note that a bare subclass is not generic, so it cannot be
+re-parametrized after the fact. For full cross-checker support of `null=True`,
+declare a generic subclass (option 1. below) and spell out the `| None` type
+parameters on nullable uses — see
+[the `null=True` section](#nulltrue-on-a-custom-field-for-every-type-checker).
+
+> [!IMPORTANT]
+> Each `TypeVar` you forward to `models.Field` (or one of its subclasses) **must**
+> declare a `default=` value (PEP 696). Without a default, mypy will not be able
+> to instantiate your field without explicit type arguments and the plugin will
+> not be able to infer the right types for your model attributes.
 
 1. Generic subclass:
 
 ```python
-from typing import TypeVar, reveal_type
+from typing import reveal_type
+from typing_extensions import TypeVar  # for `default=` (PEP 696)
 from django.db import models
 
-_ST = TypeVar("_ST", contravariant=True)
-_GT = TypeVar("_GT", covariant=True)
+_ST = TypeVar("_ST", contravariant=True, default=float | int | str)
+_GT = TypeVar("_GT", covariant=True, default=int)
 
 
 class MyIntegerField(models.IntegerField[_ST, _GT]): ...
@@ -472,6 +510,101 @@ User().my_field = "12"  # E: Incompatible types in assignment (expression has ty
 ```
 
 See mypy section on [generic classes subclasses](https://mypy.readthedocs.io/en/stable/generics.html#defining-subclasses-of-generic-classes).
+
+#### `null=True` on a custom field, for every type checker
+
+The most compatible recipe — it resolves on every type checker we test against
+(mypy, pyright, pyrefly, ty), plus zuban — is to declare the field as a generic
+subclass and spell out the `... | None` type parameters wherever it is used
+with `null=True`, either inline at the call site:
+
+```python
+from typing import assert_type
+from typing_extensions import TypeVar  # for `default=` (PEP 696)
+from django.db import models
+
+_ST = TypeVar("_ST", contravariant=True, default=float | int | str)
+_GT = TypeVar("_GT", covariant=True, default=int)
+
+class MyIntegerField(models.IntegerField[_ST, _GT]): ...
+
+class User(models.Model):
+    my_field = MyIntegerField()
+    my_nullable = MyIntegerField[float | int | str | None, int | None](null=True)
+
+assert_type(User().my_field, int)
+assert_type(User().my_nullable, int | None)
+```
+
+or, when naming the specialization once reads better, through a dedicated
+subclass:
+
+```python
+class MyNullableIntegerField(MyIntegerField[float | int | str | None, int | None]): ...
+
+class User(models.Model):
+    my_nullable = MyNullableIntegerField(null=True)
+```
+
+Anything less explicit — a bare subclass, or a generic subclass instantiated
+with `null=True` but no type parameters — is best effort: precise under mypy
+with the plugin, silently non-null on the other type checkers.
+
+Alternatively, to keep a single class whose `null=True` call sites resolve by
+themselves, redeclare the constructor overloads with self-annotations — the
+same mechanism the bundled stubs use. The `django_stubs_ext.FieldInitKwargs`
+TypedDict carries every keyword argument shared by all `models.Field`
+constructors (it is generic over the type `db_default` accepts), so the
+overloads stay short while keeping full keyword argument checking:
+
+```python
+from typing import Any, Literal, overload
+from typing_extensions import TypeVar, Unpack, assert_type
+from django.db import models
+from django_stubs_ext import FieldInitKwargs
+
+_ST = TypeVar("_ST", contravariant=True, default=float | int | str)
+_GT = TypeVar("_GT", covariant=True, default=int)
+
+class MyIntegerField(models.IntegerField[_ST, _GT]):
+    @overload
+    def __init__(  # nullable: read and write accept None
+        self: MyIntegerField[float | int | str | None, int | None],
+        verbose_name: str | None = None,
+        name: str | None = None,
+        *,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[float | int | str | None]],
+    ) -> None: ...
+    @overload
+    def __init__(  # fallback: dynamic flags keep the class defaults
+        self,
+        verbose_name: str | None = None,
+        name: str | None = None,
+        *,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[float | int | str]],
+    ) -> None: ...
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+class User(models.Model):
+    custom_int = MyIntegerField(null=False)
+    custom_int_nullable = MyIntegerField(null=True)
+
+assert_type(User().custom_int, int)
+assert_type(User().custom_int_nullable, int | None)
+```
+
+If your field adds its own constructor arguments, declare them explicitly next
+to `null` in both overloads.
+
+> [!WARNING]
+> ty ≥ 0.0.40 has a generics-solver regression (upstream report pending) that
+> prevents solving a contravariant TypeVar from a `self` annotation, so this
+> overload mechanism — including the bundled fields' own `null=True` overloads —
+> currently falls back to the non-null types on ty. The explicit
+> parametrization recipe above is unaffected.
 
 ## Related projects
 
