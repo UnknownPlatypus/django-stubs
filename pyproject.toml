@@ -31,7 +31,7 @@ classifiers = [
 ]
 dependencies = [
   "django",
-  "django-stubs-ext>=6.0.2",
+  "django-stubs-ext>=6.0.6",
   "tomli; python_version < '3.11'",
   # Types:
   "types-pyyaml",

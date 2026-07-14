@@ -171,10 +171,12 @@ class DjangoContext:
                     return field
         raise ValueError("No primary key defined")
 
-    def get_expected_types(self, api: TypeChecker, model_cls: type[Model], context: Context) -> dict[str, MypyType]:
-        """Return a mapping of field name to the type accepted when assigning/passing it as a kwarg."""
+    def get_expected_types(
+        self, api: TypeChecker, model_cls: type[Model], context: Context, *, method: str
+    ) -> dict[str, MypyType]:
         contenttypes_in_apps = self.apps_registry.is_installed("django.contrib.contenttypes")
         model_info = helpers.lookup_class_typeinfo(api, model_cls)
+        is_init = method == "__init__"
 
         expected_types = {}
         if not model_cls._meta.abstract:
@@ -203,16 +205,22 @@ class DjangoContext:
                 if field.related_model == "self" and model_cls._meta.abstract:  # type: ignore[comparison-overlap, unreachable]
                     continue  # type: ignore[unreachable]
 
-                expected_types[field_name] = helpers.get_field_set_type_from_model_type_info(
+                set_type: MypyType = helpers.get_field_set_type_from_model_type_info(
                     api, context, model_info, field_name
                 )
+                if is_init and isinstance(field, ForeignKey):
+                    set_type = make_optional_type(set_type)
+                expected_types[field_name] = set_type
                 if isinstance(field, ForeignKey):
                     # In the case of a FK, we need to register both `fk_name` and `fk_name_id`
                     # - `field.attname` -> `fk_name_id`
                     # - `field.name`  -> `fk_name`
-                    expected_types[field.name] = helpers.get_field_set_type_from_model_type_info(
+                    fk_set_type: MypyType = helpers.get_field_set_type_from_model_type_info(
                         api, context, model_info, field.name
                     )
+                    if is_init:
+                        fk_set_type = make_optional_type(fk_set_type)
+                    expected_types[field.name] = fk_set_type
 
         return expected_types
 
@@ -370,7 +378,9 @@ class DjangoContext:
                         return None
                     defaults = helpers.fill_field_defaults(field_info, api)
                     field_type_args = helpers.get_field_type_args(defaults)
-                    assert field_type_args is not None
+                    if field_type_args is None:
+                        # Custom field whose MRO doesn't resolve to the base Field (e.g. an `Any` base)
+                        return AnyType(TypeOfAny.explicit)
                     result: MypyType = field_type_args.get
                     if field.null:
                         result = make_optional_type(result)

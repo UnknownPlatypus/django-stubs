@@ -23,7 +23,7 @@ from mypy.nodes import (
 )
 from mypy.plugins import common
 from mypy.semanal import SemanticAnalyzer
-from mypy.typeanal import TypeAnalyser, make_optional_type
+from mypy.typeanal import TypeAnalyser
 from mypy.types import AnyType, Instance, ProperType, TypedDictType, TypeOfAny, TypeType, TypeVarType, get_proper_type
 from mypy.types import Type as MypyType
 from mypy.typevars import fill_typevars
@@ -344,16 +344,10 @@ class AddRelatedModelsId(ModelClassInitializer):
                     raise exc
                 continue
 
-            field_instance = helpers.fill_field_defaults(field_info, self.api)
             is_nullable = self.django_context.get_field_nullability(field)
-            if is_nullable:
-                field_instance = field_instance.copy_modified(
-                    args=[
-                        make_optional_type(field_instance.args[0]),
-                        make_optional_type(field_instance.args[1]),
-                        *field_instance.args[2:],
-                    ]
-                )
+            field_instance = helpers.fill_field_defaults(
+                field_info, self.api, is_set_nullable=is_nullable, is_get_nullable=is_nullable
+            )
             self.add_new_var_to_model_class(field.attname, field_instance)
 
 
