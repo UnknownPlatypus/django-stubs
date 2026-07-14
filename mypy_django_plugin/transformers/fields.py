@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models.fields import AutoField
 from django.db.models.fields.related import RelatedField
 from mypy.nodes import AssignmentStmt, NameExpr, TypeInfo
 from mypy.typeanal import make_optional_type
-from mypy.types import AnyType, Instance, ProperType, TypeOfAny, get_proper_type
+from mypy.types import AnyType, Instance, NoneType, ProperType, TypeOfAny, get_proper_type
 from mypy.types import Type as MypyType
 
 from mypy_django_plugin.exceptions import UnregisteredModelError
@@ -124,45 +124,52 @@ def set_descriptor_types_for_field_callback(ctx: FunctionContext, django_context
     return set_descriptor_types_for_field(ctx)
 
 
+def _warn_if_nullable_get_not_optional(ctx: FunctionContext, field_type: Instance) -> None:
+    if not helpers.get_bool_call_argument_by_name(ctx, "null", default=False):
+        return
+    field_args = helpers.get_field_type_args(field_type)
+    if field_args is None:
+        return
+    get_type = field_args.get
+    if isinstance(get_type, NoneType) or helpers.is_optional(get_type) or isinstance(get_type, AnyType):
+        return
+    ctx.api.fail(
+        f"{field_type.type.name} is nullable but its generic get type parameter is not optional",
+        ctx.context,
+    )
+
+
 def set_descriptor_types_for_field(ctx: FunctionContext, *, is_set_nullable: bool = False) -> Instance:
     default_return_type = cast("Instance", ctx.default_return_type)
     if len(default_return_type.args) != 2:
-        # Explicitly bound fields. For ex:
-        # `class CustomValueField(fields.Field[CustomFieldValue | int, CustomFieldValue])`
+        _warn_if_nullable_get_not_optional(ctx, default_return_type)
+        return default_return_type
+
+    # FileDescriptor.__get__ always returns a FieldFile and its __set__ accepts None; stub is authoritative.
+    if default_return_type.type.has_base(fullnames.FILE_FIELD_FULLNAME):
         return default_return_type
 
     is_nullable = helpers.get_bool_call_argument_by_name(ctx, "null", default=False)
-
-    is_primary_key = helpers.get_bool_call_argument_by_name(ctx, "primary_key", default=False)
-    default_expr = helpers.get_call_argument_by_name(ctx, "default")
-    if default_expr is not None:
-        is_set_nullable = is_primary_key
-
-    set_type = default_return_type.args[0]
-    get_type = default_return_type.args[1]
-    # `null=True` makes both directions optional; `primary_key` + `default` only relaxes writes.
-    # The stub `__init__` overloads already encode this for direct concrete-field calls; this
-    # hook re-derives it for the cases overloads cannot see (auto-reparametrized custom field
-    # subclasses, fallback-overload resolutions).
-    # FileField is excluded: FileDescriptor.__get__ always returns a FieldFile (wrapping None)
-    # and its __set__ already accepts None, so its stub overrides are authoritative.
-    if default_return_type.type.has_base(fullnames.FILE_FIELD_FULLNAME):
+    if helpers.get_call_argument_by_name(ctx, "default") is not None:
+        is_set_nullable = helpers.get_bool_call_argument_by_name(ctx, "primary_key", default=False)
+    if not (is_nullable or is_set_nullable):
         return default_return_type
-    # Only fold `None` when the field's own type parameters *are* its set/get types (the direct
-    # case: CharField, IntegerField, ForeignKey, ...). "Wrapper" fields such as ArrayField
-    # parametrize themselves on element types (`ArrayField[_ST_Array, _GT_Array]` extending
-    # `Field[Sequence[_ST_Array] | Combinable, list[_GT_Array]]`); folding `None` into their args
-    # would wrongly make the *element* optional (`list[int | None]`) instead of the column
-    # (`list[int] | None`). Such fields cannot encode column nullability through their own
-    # parameters, so — like every checker without the plugin — we leave them unchanged.
+
+    # Wrapper fields (ArrayField) hold element types in their own args, so a nullable column reads as
+    # `list[T] | None` only on the Field-base view; other checkers keep the non-optional stub type.
     field_args = helpers.get_field_type_args(default_return_type)
-    is_direct = field_args is not None and field_args.set == set_type and field_args.get == get_type
-    if is_direct:
-        if is_set_nullable or is_nullable:
-            set_type = make_optional_type(set_type)
-        if is_nullable:
-            get_type = make_optional_type(get_type)
-    return default_return_type.copy_modified(args=[set_type, get_type])
+    is_wrapper = field_args is not None and (
+        field_args.set != default_return_type.args[0] or field_args.get != default_return_type.args[1]
+    )
+    target = helpers.get_field_base_instance(default_return_type) if is_wrapper else default_return_type
+    if target is None:
+        target = default_return_type
+    return target.copy_modified(
+        args=[
+            make_optional_type(target.args[0]),
+            make_optional_type(target.args[1]) if is_nullable else target.args[1],
+        ]
+    )
 
 
 def transform_into_proper_return_type(ctx: FunctionContext, django_context: DjangoContext) -> MypyType:

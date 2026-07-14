@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Generic, Literal, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, assert_type, overload
 
 from django.db import models
 from django.db.models.expressions import Combinable, F
 from django.db.models.fields import _GT, _ST
-from typing_extensions import TypeVar, Unpack, assert_type
+from typing_extensions import TypeVar, Unpack
 
 if TYPE_CHECKING:
     from django_stubs_ext import FieldInitKwargs
@@ -49,7 +49,10 @@ def custom_explicit_get_set_field() -> None:
 
     class MyModel(models.Model):
         field = CustomValueField()
-        null_field = CustomValueField(null=True)
+        # The mypy plugin flags `null=True` on a field whose get type isn't optional (`[misc]`); the
+        # other checkers bind the non-nullable fallback overload silently. Either way `null=` is not
+        # reflected in the read type — widen the parameters (`... | None`) to make the column nullable.
+        null_field = CustomValueField(null=True)  # type: ignore[misc]
 
     instance = MyModel()
     assert_type(instance.field, CustomFieldValue)
@@ -124,11 +127,12 @@ def field_two_typevar_form_is_still_accepted() -> None:
 
     class MyModel(models.Model):
         field = LegacyField()
-        null_field = LegacyField(null=True)
+        # Concrete 2-typevar form is non-generic, so `null=True` is not reflected on any checker; the
+        # mypy plugin additionally flags it (`[misc]`) to steer you toward widening the parameters.
+        null_field = LegacyField(null=True)  # type: ignore[misc]
 
     instance = MyModel()
     assert_type(instance.field, CustomFieldValue)
-    # Concrete 2-typevar form is non-generic, so `null=True` is not reflected on any checker.
     assert_type(instance.null_field, CustomFieldValue)
     instance.field = CustomFieldValue()
     instance.field = 12
@@ -227,3 +231,21 @@ def custom_model_field_override_init_via_overloads() -> None:
 
     assert_type(User().custom_int, int)
     assert_type(User().custom_int_nullable, int | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+
+
+def concrete_custom_field_null_requires_optional_get_type() -> None:
+    class ConcreteField(models.Field[str, str]): ...
+
+    class AlreadyOptionalField(models.Field[str | None, str | None]): ...
+
+    class MyModel(models.Model):
+        ok = ConcreteField()
+        # A fully-bound field can't fold `| None` into a concrete get type; the mypy plugin flags this
+        # (`[misc]`) so nullable reads aren't silently non-optional. Widen the get type instead.
+        bad = ConcreteField(null=True)  # type: ignore[misc]
+        already_optional = AlreadyOptionalField(null=True)
+
+    instance = MyModel()
+    assert_type(instance.ok, str)
+    assert_type(instance.bad, str)
+    assert_type(instance.already_optional, str | None)

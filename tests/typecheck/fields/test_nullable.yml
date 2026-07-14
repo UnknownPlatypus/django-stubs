@@ -73,3 +73,24 @@
                 from django.db import models
                 class Inventory(models.Model):
                     parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True)
+
+-   case: nullable_fk_to_custom_pk_without_type_params_does_not_crash
+    monkeypatch: true
+    main: |
+        from typing_extensions import reveal_type
+        from myapp.models import Book
+        # A pinned custom PK has no type params, so `target_id` can't carry column `| None`; it must
+        # still resolve (to the pk read type) rather than crash the plugin with an IndexError.
+        reveal_type(Book().target_id)  # N: Revealed type is "int"
+    installed_apps:
+        - myapp
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+                class MyPk(models.IntegerField[int, int]): ...
+                class Target(models.Model):
+                    code = MyPk(primary_key=True)
+                class Book(models.Model):
+                    target = models.ForeignKey(Target, on_delete=models.CASCADE, null=True)
