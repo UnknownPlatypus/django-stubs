@@ -279,6 +279,7 @@ django.forms.models.modelformset_factory
 django.contrib.contenttypes.fields.GenericForeignKey.__get__
 django.db.models.fields.Field.__get__
 django.db.models.fields.files.FileField.__get__
+django.db.models.fields.files.ImageField.__get__
 django.db.models.fields.related.ForeignObject.__get__
 django.db.models.fields.related.ManyToManyField.__get__
 django.db.models.fields.related.OneToOneField.__get__

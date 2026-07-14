@@ -26,11 +26,13 @@ def return_proper_field_type_from_get_field(ctx: MethodContext, django_context: 
     ):
         return ctx.default_return_type
 
+    api = helpers.get_typechecker_api(ctx)
+    # TypeInfo first so synthetic members like the `pk` alias resolve; real misses still raise below.
+    if field_type := helpers.get_field_type_from_model_type_info(api, ctx.context, model_type.type, field_name):
+        return field_type
+
     try:
         field = django_model.cls._meta.get_field(field_name)
-        api = helpers.get_typechecker_api(ctx)
-        if field_type := helpers.get_field_type_from_model_type_info(api, ctx.context, model_type.type, field_name):
-            return field_type
         if field_info := helpers.lookup_class_typeinfo(api, field.__class__):
             return Instance(field_info, [])
     except FieldDoesNotExist as e:

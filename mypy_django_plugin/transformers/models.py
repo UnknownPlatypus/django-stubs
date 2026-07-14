@@ -23,7 +23,7 @@ from mypy.nodes import (
 )
 from mypy.plugins import common
 from mypy.semanal import SemanticAnalyzer
-from mypy.typeanal import TypeAnalyser, make_optional_type
+from mypy.typeanal import TypeAnalyser
 from mypy.types import AnyType, Instance, ProperType, TypedDictType, TypeOfAny, TypeType, TypeVarType, get_proper_type
 from mypy.types import Type as MypyType
 from typing_extensions import override
@@ -339,16 +339,10 @@ class AddRelatedModelsId(ModelClassInitializer):
                     raise exc
                 continue
 
-            field_instance = helpers.fill_field_defaults(field_info, self.api)
             is_nullable = self.django_context.get_field_nullability(field)
-            if is_nullable:
-                field_instance = field_instance.copy_modified(
-                    args=[
-                        make_optional_type(field_instance.args[0]),
-                        make_optional_type(field_instance.args[1]),
-                        *field_instance.args[2:],
-                    ]
-                )
+            field_instance = helpers.fill_field_defaults(
+                field_info, self.api, is_set_nullable=is_nullable, is_get_nullable=is_nullable
+            )
             self.add_new_var_to_model_class(field.attname, field_instance)
 
 
@@ -848,7 +842,16 @@ class ProcessManyToManyFields(ModelClassInitializer):
         # if the DEFAULT_AUTO_FIELD hasn't been analyzed yet. By resolving it first,
         # we avoid registering an empty through model that would be returned on the
         # next pass without its attributes populated.
-        default_pk = self.default_pk_instance
+        try:
+            default_pk = self.default_pk_instance
+        except helpers.IncompleteDefnException:
+            if not self.api.final_iteration:
+                raise
+            # A custom DEFAULT_AUTO_FIELD living in a module analyzed after this one is
+            # unreachable here for good. Approximate the pk with the base 'AutoField'
+            # rather than dropping the whole through model (managers, FKs) on the floor.
+            auto_field_info = self.lookup_typeinfo_or_incomplete_defn_error("django.db.models.fields.AutoField")
+            default_pk = helpers.fill_field_defaults(auto_field_info, self.api, is_set_nullable=True)
         # Declare a new, empty, implicitly generated through model class named: '<Model>_<field_name>'
         through_model = self.add_new_class_for_current_module(model_name, bases=[Instance(self.model_base, [])])
         # We attempt to be a bit clever here and store the generated through model's fullname in

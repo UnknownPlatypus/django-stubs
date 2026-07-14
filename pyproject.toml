@@ -29,7 +29,7 @@ classifiers = [
 ]
 dependencies = [
   "django",
-  "django-stubs-ext>=6.0.2",
+  "django-stubs-ext>=6.1.0",
   # Types:
   "types-pyyaml",
   "typing-extensions>=4.11.0",

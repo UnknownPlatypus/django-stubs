@@ -390,8 +390,9 @@ def fill_field_defaults(
     api: TypeChecker | SemanticAnalyzer,
     *,
     is_set_nullable: bool = False,
+    is_get_nullable: bool = False,
 ) -> Instance:
-    """Build an Instance of `field_info` with PEP 696 TypeVar defaults applied."""
+    """Build an Instance of `field_info` with PEP 696 defaults; fold `| None` into set/get args if asked."""
     inst = Instance(field_info, ())
     fix_instance(
         inst,
@@ -401,8 +402,13 @@ def fill_field_defaults(
         options=api.options,
         use_generic_error=True,
     )
-    if is_set_nullable and inst.args:
-        inst = inst.copy_modified(args=[make_optional_type(inst.args[0]), *inst.args[1:]])
+    if inst.args:
+        args = list(inst.args)
+        if is_set_nullable:
+            args[0] = make_optional_type(args[0])
+        if is_get_nullable and len(args) > 1:
+            args[1] = make_optional_type(args[1])
+        inst = inst.copy_modified(args=args)
     return inst
 
 
@@ -411,13 +417,20 @@ class FieldTypeArgs(NamedTuple):
     get: ProperType
 
 
-def get_field_type_args(field_type: Instance) -> FieldTypeArgs | None:
-    """Extract (_ST, _GT) from a Field instance by mapping to the base Field class."""
+def get_field_base_instance(field_type: Instance) -> Instance | None:
+    """Map a Field subclass instance onto the base `Field[_ST, _GT]` it derives from."""
     base_field_info = next((base for base in field_type.type.mro if base.fullname == fullnames.FIELD_FULLNAME), None)
     if base_field_info is None:
         return None
-    mapped = map_instance_to_supertype(field_type, base_field_info)
-    return FieldTypeArgs(set=get_proper_type(mapped.args[0]), get=get_proper_type(mapped.args[1]))
+    return map_instance_to_supertype(field_type, base_field_info)
+
+
+def get_field_type_args(field_type: Instance) -> FieldTypeArgs | None:
+    """Extract (_ST, _GT) from a Field instance by mapping to the base Field class."""
+    base = get_field_base_instance(field_type)
+    if base is None:
+        return None
+    return FieldTypeArgs(set=get_proper_type(base.args[0]), get=get_proper_type(base.args[1]))
 
 
 def get_nested_meta_node_for_current_class(info: TypeInfo) -> TypeInfo | None:
@@ -862,10 +875,13 @@ def get_field_type_from_model_type_info(
     For `name = CharField()` -> `CharField[str | int | Combinable, str]`.
     For `name = CharField(null=True)` -> `CharField[str | int | Combinable | None, str | None]`.
     """
+    # Not every model attribute is a field,
+    # a reverse o2o accessor is a two arg descriptor whose args would be misread as set/get types.
     if (
         (field_sym_node := model_info.get(field_name)) is None
         or not isinstance(field_type := get_proper_type(field_sym_node.type), Instance)
         or len(field_type.args) < 2
+        or not field_type.type.has_base(fullnames.FIELD_FULLNAME)
     ):
         return None
 

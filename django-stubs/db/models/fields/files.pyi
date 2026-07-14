@@ -6,10 +6,9 @@ from django.core.files.base import File
 from django.core.files.images import ImageFile
 from django.core.files.storage import Storage
 from django.db.models.base import Model
-from django.db.models.fields import _ST, Field, _FieldDescriptor
+from django.db.models.fields import _ST, Field
 from django.db.models.query_utils import DeferredAttribute
 from django.db.models.utils import AltersData
-from django.utils._os import _PathCompatible
 from django.utils.functional import _StrOrPromise
 from typing_extensions import TypeVar, Unpack, override
 
@@ -80,7 +79,7 @@ class FileField(Field[_ST, _GT_File]):
     @overload
     @type_check_only
     @override
-    def __get__(self, instance: None, owner: Any) -> _FieldDescriptor[Self]: ...
+    def __get__(self, instance: None, owner: Any) -> FileDescriptor: ...
     # Model instance access — null=True does NOT add `| None`
     @overload
     @type_check_only
@@ -117,7 +116,24 @@ class ImageField(FileField[_ST, _GT_ImageFile]):
         width_field: str | None = None,
         height_field: str | None = None,
         *,
+        upload_to: StrPath | _UploadToCallable[Any] = "",
+        storage: Storage | Callable[[], Storage] | None = None,
         null: bool = False,
         **kwargs: Unpack[FieldInitKwargs[_ST]],
     ) -> None: ...
+    # class access
+    @overload
+    @type_check_only
+    @override
+    def __get__(self, instance: None, owner: Any) -> ImageFileDescriptor: ...
+    # Model instance access — null=True does NOT add `| None` (see FileField)
+    @overload
+    @type_check_only
+    @override
+    def __get__(self, instance: Model, owner: Any) -> _GT_ImageFile: ...
+    # non-Model instances
+    @overload
+    @type_check_only
+    @override
+    def __get__(self, instance: Any, owner: Any) -> Self: ...
     def update_dimension_fields(self, instance: Model, force: bool = False, *args: Any, **kwargs: Any) -> None: ...
