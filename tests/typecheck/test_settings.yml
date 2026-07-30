@@ -113,8 +113,8 @@
 
         # `mysettings` can only be imported once the plugin has installed the
         # django-configurations importer, so booting at all proves that worked.
-        # The importer materializes `Dev`'s attributes on the settings module:
-        reveal_type(settings.CUSTOM_SETTING)  # N: Revealed type is "Any"
+        # Settings are resolved from the `Dev` class, strict mode included:
+        reveal_type(settings.CUSTOM_SETTING)  # N: Revealed type is "int"
         reveal_type(settings.NOT_A_SETTING)  # E: 'Settings' object has no attribute 'NOT_A_SETTING'  [misc] # N: Revealed type is "Any"
     custom_settings: |
         from configurations import Configuration
@@ -122,6 +122,148 @@
         class Dev(Configuration):
             SECRET_KEY = "1"
             CUSTOM_SETTING = 1
+    mypy_config: |
+        [mypy]
+        ignore_missing_imports = true
+        disallow_subclassing_any = false
+        [mypy.plugins.django-stubs]
+        django_settings_module = mysettings
+        django_configuration = Dev
+
+
+-   case: configuration_class_settings_are_resolved_statically
+    disable_cache: true
+    main: |
+        from typing_extensions import reveal_type
+        from django.conf import settings
+
+        # Plain and annotated class attributes:
+        reveal_type(settings.CLASS_SETTING)  # N: Revealed type is "int"
+        reveal_type(settings.ANNOTATED_SETTING)  # N: Revealed type is "str"
+
+        # The class overrides both global settings and module-level names,
+        # matching the runtime precedence of django-configurations:
+        reveal_type(settings.EMAIL_SUBJECT_PREFIX)  # N: Revealed type is "int"
+        reveal_type(settings.MODULE_SETTING)  # N: Revealed type is "str"
+
+        # Module-level and global settings still resolve:
+        reveal_type(settings.MODULE_ONLY_SETTING)  # N: Revealed type is "float"
+        reveal_type(settings.AUTH_USER_MODEL)  # N: Revealed type is "str"
+
+        # Unknown settings still error:
+        reveal_type(settings.NOT_A_SETTING)  # E: 'Settings' object has no attribute 'NOT_A_SETTING'  [misc] # N: Revealed type is "Any"
+    custom_settings: |
+        from configurations import Configuration
+
+        MODULE_SETTING = 1
+        MODULE_ONLY_SETTING = 1.5
+
+        class Dev(Configuration):
+            SECRET_KEY = "1"
+            CLASS_SETTING = 1
+            ANNOTATED_SETTING: str = "x"
+            EMAIL_SUBJECT_PREFIX = 3
+            MODULE_SETTING = "x"
+    mypy_config: |
+        [mypy]
+        ignore_missing_imports = true
+        disallow_subclassing_any = false
+        [mypy.plugins.django-stubs]
+        django_settings_module = mysettings
+        django_configuration = Dev
+
+
+-   case: configuration_class_resolves_inherited_attributes
+    disable_cache: true
+    main: |
+        from typing_extensions import reveal_type
+        from django.conf import settings
+
+        reveal_type(settings.FROM_BASE)  # N: Revealed type is "str"
+        reveal_type(settings.OVERRIDDEN)  # N: Revealed type is "int"
+    files:
+        -   path: base.py
+            content: |
+                from configurations import Configuration
+
+                class Base(Configuration):
+                    SECRET_KEY = "1"
+                    FROM_BASE = "1"
+                    OVERRIDDEN: float = 0.5
+    custom_settings: |
+        from base import Base
+
+        class Dev(Base):
+            OVERRIDDEN = 2
+    mypy_config: |
+        [mypy]
+        ignore_missing_imports = true
+        disallow_subclassing_any = false
+        [mypy.plugins.django-stubs]
+        django_settings_module = mysettings
+        django_configuration = Dev
+
+
+-   case: configuration_class_skips_methods_and_unwraps_properties
+    disable_cache: true
+    main: |
+        from typing_extensions import reveal_type
+        from django.conf import settings
+
+        # Properties are evaluated when django-configurations loads settings:
+        reveal_type(settings.UPPER_PROPERTY)  # N: Revealed type is "str"
+
+        # Methods and lowercase attributes are not resolved from the class:
+        reveal_type(settings.UPPER_METHOD)  # E: 'Settings' object has no attribute 'UPPER_METHOD'  [misc] # N: Revealed type is "Any"
+        reveal_type(settings.helper)  # E: 'Settings' object has no attribute 'helper'  [misc] # N: Revealed type is "Any"
+    custom_settings: |
+        from configurations import Configuration
+
+        class Dev(Configuration):
+            SECRET_KEY = "1"
+
+            @property
+            def UPPER_PROPERTY(self) -> str:
+                return "x"
+
+            def UPPER_METHOD(self) -> int:
+                return 1
+
+            helper = "x"
+    mypy_config: |
+        [mypy]
+        ignore_missing_imports = true
+        disallow_subclassing_any = false
+        [mypy.plugins.django-stubs]
+        django_settings_module = mysettings
+        django_configuration = Dev
+
+
+-   case: configuration_class_with_runtime_fallback
+    disable_cache: true
+    main: |
+        from typing_extensions import reveal_type
+        from django.conf import settings
+
+        # Class attributes stay precise in non-strict mode:
+        reveal_type(settings.TYPED)  # N: Revealed type is "int"
+
+        # `configurations.values` ships no type hints, so those degrade to `Any`:
+        reveal_type(settings.FROM_VALUE)  # N: Revealed type is "Any"
+
+        # Settings that only exist at runtime resolve to `Any` in non-strict mode:
+        reveal_type(settings.RUNTIME_ONLY)  # N: Revealed type is "Any"
+        reveal_type(settings.MISSING)  # E: 'Settings' object has no attribute 'MISSING'  [misc] # N: Revealed type is "Any"
+    custom_settings: |
+        from configurations import Configuration, values
+
+        # Some code that mypy cannot analyze, but values exist in runtime:
+        exec('RUNTIME_ONLY = 1')
+
+        class Dev(Configuration):
+            SECRET_KEY = "1"
+            TYPED = 1
+            FROM_VALUE = values.BooleanValue(False)
     mypy_config: |
         [mypy]
         ignore_missing_imports = true

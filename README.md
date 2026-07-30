@@ -329,7 +329,7 @@ If this is reported on Django code, please report an issue or open a pull reques
 
 ### How to use a custom library to handle Django settings?
 
-Using something like [`django-split-settings`](https://github.com/wemake-services/django-split-settings) or [`django-configurations`](https://github.com/jazzband/django-configurations) will make it hard for mypy to infer your settings.
+Using something like [`django-split-settings`](https://github.com/wemake-services/django-split-settings) will make it hard for mypy to infer your settings.
 
 This might also be the case when using something like:
 
@@ -349,7 +349,8 @@ settings.CUSTOM_VALUE  # E: 'Settings' object has no attribute 'CUSTOM_VALUE'
 ```
 
 To handle this corner case we have a special setting `strict_settings` (`True` by default),
-you can switch it to `False` to always return `Any` and not raise any errors if runtime settings module has the given value,
+you can switch it to `False` to always return `Any` and not raise any errors if runtime settings module has the given value
+(the plugin runs your settings module, so it knows what exists at runtime),
 for example `pyproject.toml`:
 
 ```toml
@@ -375,6 +376,50 @@ reveal_type(settings.EXISTS_AT_RUNTIME)  # N: Any
 # Errors:
 reveal_type(settings.MISSING)  # E: 'Settings' object has no attribute 'MISSING'
 ```
+
+#### django-configurations
+
+[`django-configurations`](https://github.com/jazzband/django-configurations) is supported out of
+the box: set its `DJANGO_CONFIGURATION` environment variable, or the equivalent
+`django_configuration` plugin option, and the plugin boots Django through the configurations
+importer and resolves settings from your `Configuration` class and its bases with precise types:
+
+```ini
+[mypy.plugins.django-stubs]
+django_settings_module = myproject.settings
+django_configuration = Dev
+```
+
+```python
+# myproject/settings.py
+from configurations import Configuration
+
+class Dev(Configuration):
+    DEBUG = True
+    MY_SETTING: str = "on"
+```
+
+```python
+from django.conf import settings
+
+reveal_type(settings.MY_SETTING)  # N: str
+```
+
+Notes:
+
+- django-configurations ships no type hints, so mypy needs `ignore_missing_imports = true` for
+  the `configurations` package, and — in strict mode — `disallow_subclassing_any = false` for
+  your settings module. `configurations.values.*` attributes resolve to `Any` for the same
+  reason.
+- Settings created dynamically (e.g. in `setup()` or uppercase methods) are only visible at
+  runtime — use `strict_settings = false` if you rely on those.
+
+#### Other loaders
+
+If your settings can only be produced by machinery the plugin doesn't know about, you can point
+`django_settings_module` at a static, mypy-only settings module, or wrap the plugin in a
+[tiny custom plugin](https://github.com/typeddjango/django-stubs/pull/180#issuecomment-820062352)
+that performs your bootstrapping before handing over to `mypy_django_plugin.main.plugin`.
 
 ### How to use `type[Model]` annotation with `.objects` attribute?
 
