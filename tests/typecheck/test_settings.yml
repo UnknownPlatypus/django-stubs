@@ -103,3 +103,30 @@
     mypy_config: |
         [mypy.plugins.django-stubs]
         django_settings_module = mysettings
+
+
+-   case: django_configuration_boots_django_configurations_project
+    disable_cache: true
+    main: |
+        from typing_extensions import reveal_type
+        from django.conf import settings
+
+        # `mysettings` can only be imported once the plugin has installed the
+        # django-configurations importer, so booting at all proves that worked.
+        # The importer materializes `Dev`'s attributes on the settings module:
+        reveal_type(settings.CUSTOM_SETTING)  # N: Revealed type is "Any"
+        reveal_type(settings.NOT_A_SETTING)  # E: 'Settings' object has no attribute 'NOT_A_SETTING'  [misc] # N: Revealed type is "Any"
+    custom_settings: |
+        from configurations import Configuration
+
+        class Dev(Configuration):
+            SECRET_KEY = "1"
+            CUSTOM_SETTING = 1
+    mypy_config: |
+        [mypy]
+        ignore_missing_imports = true
+        disallow_subclassing_any = false
+        [mypy.plugins.django-stubs]
+        django_settings_module = mysettings
+        django_configuration = Dev
+        strict_settings = false

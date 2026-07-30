@@ -75,7 +75,9 @@ class NewSemanalDjangoPlugin(Plugin):
         sys.path.extend(mypy_path())
         # Add paths from mypy_path config option
         sys.path.extend(options.mypy_path)
-        self.django_context = DjangoContext(self.plugin_config.django_settings_module)
+        self.django_context = DjangoContext(
+            self.plugin_config.django_settings_module, self.plugin_config.django_configuration
+        )
 
     def _get_typeinfo_or_none(self, class_name: str) -> TypeInfo | None:
         sym = self.lookup_fully_qualified(class_name)

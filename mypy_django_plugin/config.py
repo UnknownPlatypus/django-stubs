@@ -21,6 +21,7 @@ INI_USAGE = """
 ...
 [mypy.plugins.django-stubs]
 django_settings_module = str (default: `os.getenv("DJANGO_SETTINGS_MODULE")`)
+django_configuration = str (default: `os.getenv("DJANGO_CONFIGURATION")`)
 strict_settings = bool (default: true)
 strict_model_abstract_attrs = bool (default: true)
 ...
@@ -30,6 +31,7 @@ TOML_USAGE = """
 ...
 [tool.django-stubs]
 django_settings_module = str (default: `os.getenv("DJANGO_SETTINGS_MODULE")`)
+django_configuration = str (default: `os.getenv("DJANGO_CONFIGURATION")`)
 strict_settings = bool (default: true)
 strict_model_abstract_attrs = bool (default: true)
 ...
@@ -38,11 +40,16 @@ INVALID_FILE = "mypy config file is not specified or found"
 COULD_NOT_LOAD_FILE = "could not load configuration file"
 MISSING_SECTION = "no section [{section}] found"
 DJANGO_SETTINGS_ENV_VAR = "DJANGO_SETTINGS_MODULE"
+DJANGO_CONFIGURATION_ENV_VAR = "DJANGO_CONFIGURATION"
 MISSING_DJANGO_SETTINGS = (
     "missing required 'django_settings_module' config.\n"
     f"Either specify this config or set your `{DJANGO_SETTINGS_ENV_VAR}` env var"
 )
 INVALID_BOOL_SETTING = "invalid {key!r}: the setting must be a boolean"
+INVALID_DJANGO_CONFIGURATION = (
+    "invalid 'django_configuration': the setting must be a class name"
+    f" (as `{DJANGO_CONFIGURATION_ENV_VAR}`), not a dotted path"
+)
 
 
 def exit_with_error(msg: str, is_toml: bool = False) -> NoReturn:
@@ -62,8 +69,9 @@ def exit_with_error(msg: str, is_toml: bool = False) -> NoReturn:
 
 
 class DjangoPluginConfig:
-    __slots__ = ("django_settings_module", "strict_model_abstract_attrs", "strict_settings")
+    __slots__ = ("django_configuration", "django_settings_module", "strict_model_abstract_attrs", "strict_settings")
 
+    django_configuration: str | None
     django_settings_module: str
     strict_settings: bool
 
@@ -104,6 +112,14 @@ class DjangoPluginConfig:
         if not isinstance(self.django_settings_module, str):
             toml_exit("invalid 'django_settings_module': the setting must be a string")
 
+        django_configuration = config.get("django_configuration") or os.getenv(DJANGO_CONFIGURATION_ENV_VAR) or None
+        if django_configuration is not None:
+            if not isinstance(django_configuration, str):
+                toml_exit("invalid 'django_configuration': the setting must be a string")
+            if "." in django_configuration:
+                toml_exit(INVALID_DJANGO_CONFIGURATION)
+        self.django_configuration = django_configuration
+
         self.strict_settings = config.get("strict_settings", True)
         if not isinstance(self.strict_settings, bool):
             toml_exit(INVALID_BOOL_SETTING.format(key="strict_settings"))
@@ -134,6 +150,13 @@ class DjangoPluginConfig:
 
         self.django_settings_module = django_settings_module
 
+        django_configuration = parser.get(section, "django_configuration", fallback=None)
+        self.django_configuration = (
+            django_configuration.strip("'\"") if django_configuration else os.getenv(DJANGO_CONFIGURATION_ENV_VAR)
+        ) or None
+        if self.django_configuration is not None and "." in self.django_configuration:
+            exit_with_error(INVALID_DJANGO_CONFIGURATION)
+
         try:
             self.strict_settings = parser.getboolean(section, "strict_settings", fallback=True)
         except ValueError:
@@ -148,6 +171,7 @@ class DjangoPluginConfig:
         """We use this method to reset mypy cache via `report_config_data` hook."""
         return {
             "django_settings_module": self.django_settings_module,
+            "django_configuration": self.django_configuration,
             "strict_settings": self.strict_settings,
             "strict_model_abstract_attrs": self.strict_model_abstract_attrs,
             **dict(sorted(extra_data.items())),

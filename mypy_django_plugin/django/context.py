@@ -55,9 +55,18 @@ def temp_environ() -> Iterator[None]:
         os.environ.update(environ)
 
 
-def initialize_django(settings_module: str) -> tuple[Apps, LazySettings]:
+def initialize_django(settings_module: str, django_configuration: str | None = None) -> tuple[Apps, LazySettings]:
     with temp_environ():
         os.environ["DJANGO_SETTINGS_MODULE"] = settings_module
+
+        if django_configuration is not None:
+            # django-configurations requires its importer to be installed before the
+            # settings module can even be imported.
+            os.environ["DJANGO_CONFIGURATION"] = django_configuration
+
+            from configurations import importer  # type: ignore[import-untyped]
+
+            importer.install()
 
         # add current directory to sys.path
         sys.path.append(os.getcwd())
@@ -112,10 +121,10 @@ def _get_field_get_type_from_model_type_info(info: TypeInfo | None, field_name: 
 
 
 class DjangoContext:
-    def __init__(self, django_settings_module: str) -> None:
+    def __init__(self, django_settings_module: str, django_configuration: str | None = None) -> None:
         self.django_settings_module = django_settings_module
 
-        apps, settings = initialize_django(self.django_settings_module)
+        apps, settings = initialize_django(self.django_settings_module, django_configuration)
         self.apps_registry = apps
         self.settings = settings
 

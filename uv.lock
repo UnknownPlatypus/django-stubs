@@ -307,6 +307,19 @@ wheels = [
 ]
 
 [[package]]
+name = "django-configurations"
+version = "2.5.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django", version = "5.2.16", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "django", version = "6.0.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c3/67/5fec7c64118209b20bde6b6f8a82300d9f4a56f7303293e2b31f9940e721/django-configurations-2.5.1.tar.gz", hash = "sha256:6e5083757e2bbdf9bb7850567536b96a93515f6b17503d74928ff628db2e0e94", size = 43225, upload-time = "2024-03-27T11:40:53.134Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6f/4e/1cc7fd6c0292d56e104f0c8c54ed71c35cafa06838d8f910b918589bf596/django_configurations-2.5.1-py3-none-any.whl", hash = "sha256:ceb84858da2dac846b15e715c2fd936cfc4c7917c074aff8d31700564093955e", size = 17357, upload-time = "2024-03-27T11:42:02.951Z" },
+]
+
+[[package]]
 name = "django-stubs"
 version = "6.0.7"
 source = { editable = "." }
@@ -323,6 +336,9 @@ dependencies = [
 compatible-mypy = [
     { name = "mypy" },
 ]
+configurations = [
+    { name = "django-configurations" },
+]
 oracle = [
     { name = "oracledb" },
 ]
@@ -335,7 +351,7 @@ redis = [
 dev = [
     { name = "django", version = "5.2.16", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "django", version = "6.0.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "django-stubs", extra = ["compatible-mypy", "oracle", "redis"] },
+    { name = "django-stubs", extra = ["compatible-mypy", "configurations", "oracle", "redis"] },
     { name = "jinja2" },
     { name = "mysqlclient" },
     { name = "psycopg", extra = ["binary"] },
@@ -359,7 +375,7 @@ pyright = [
 tests = [
     { name = "django", version = "5.2.16", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "django", version = "6.0.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "django-stubs", extra = ["compatible-mypy", "oracle", "redis"] },
+    { name = "django-stubs", extra = ["compatible-mypy", "configurations", "oracle", "redis"] },
     { name = "jinja2" },
     { name = "mysqlclient" },
     { name = "psycopg", extra = ["binary"] },
@@ -378,6 +394,7 @@ ty = [
 [package.metadata]
 requires-dist = [
     { name = "django" },
+    { name = "django-configurations", marker = "extra == 'configurations'" },
     { name = "django-stubs-ext", editable = "ext" },
     { name = "mypy", marker = "extra == 'compatible-mypy'", specifier = ">=1.13,<2.4" },
     { name = "oracledb", marker = "extra == 'oracle'" },
@@ -387,13 +404,13 @@ requires-dist = [
     { name = "types-redis", marker = "extra == 'redis'" },
     { name = "typing-extensions", specifier = ">=4.11.0" },
 ]
-provides-extras = ["compatible-mypy", "oracle", "redis"]
+provides-extras = ["compatible-mypy", "configurations", "oracle", "redis"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "django", marker = "python_full_version < '3.12'", specifier = "==5.2.16" },
     { name = "django", marker = "python_full_version >= '3.12'", specifier = "==6.0.7" },
-    { name = "django-stubs", extras = ["compatible-mypy", "oracle", "redis"], editable = "." },
+    { name = "django-stubs", extras = ["compatible-mypy", "configurations", "oracle", "redis"], editable = "." },
     { name = "jinja2", specifier = "==3.1.6" },
     { name = "mysqlclient", specifier = "==2.2.8" },
     { name = "psycopg", extras = ["binary"], specifier = "==3.3.4" },
@@ -416,7 +433,7 @@ pyright = [{ name = "pyright", specifier = "==1.1.411" }]
 tests = [
     { name = "django", marker = "python_full_version < '3.12'", specifier = "==5.2.16" },
     { name = "django", marker = "python_full_version >= '3.12'", specifier = "==6.0.7" },
-    { name = "django-stubs", extras = ["compatible-mypy", "oracle", "redis"], editable = "." },
+    { name = "django-stubs", extras = ["compatible-mypy", "configurations", "oracle", "redis"], editable = "." },
     { name = "jinja2", specifier = "==3.1.6" },
     { name = "mysqlclient", specifier = "==2.2.8" },
     { name = "psycopg", extras = ["binary"], specifier = "==3.3.4" },

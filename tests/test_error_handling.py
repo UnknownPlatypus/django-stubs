@@ -19,6 +19,7 @@ TEMPLATE = """
 ...
 [mypy.plugins.django-stubs]
 django_settings_module = str (default: `os.getenv("DJANGO_SETTINGS_MODULE")`)
+django_configuration = str (default: `os.getenv("DJANGO_CONFIGURATION")`)
 strict_settings = bool (default: true)
 strict_model_abstract_attrs = bool (default: true)
 ...
@@ -30,6 +31,7 @@ TEMPLATE_TOML = """
 ...
 [tool.django-stubs]
 django_settings_module = str (default: `os.getenv("DJANGO_SETTINGS_MODULE")`)
+django_configuration = str (default: `os.getenv("DJANGO_CONFIGURATION")`)
 strict_settings = bool (default: true)
 strict_model_abstract_attrs = bool (default: true)
 ...
@@ -73,6 +75,16 @@ def write_to_file(file_contents: str, suffix: str | None = None) -> Generator[st
             ["[mypy.plugins.django-stubs]", "django_settings_module = some.module", "strict_settings = bad"],
             "invalid 'strict_settings': the setting must be a boolean",
             id="invalid-strict_settings",
+        ),
+        pytest.param(
+            [
+                "[mypy.plugins.django-stubs]",
+                "django_settings_module = some.module",
+                "django_configuration = some.module.Dev",
+            ],
+            "invalid 'django_configuration': the setting must be a class name (as `DJANGO_CONFIGURATION`), "
+            "not a dotted path",
+            id="invalid-django_configuration",
         ),
         pytest.param(
             [
@@ -151,6 +163,25 @@ def test_handles_filename(capsys: Any, filename: str) -> None:
             """
             [tool.django-stubs]
             django_settings_module = "some.module"
+            django_configuration = 123
+            """,
+            "invalid 'django_configuration': the setting must be a string",
+            id="invalid django_configuration type",
+        ),
+        pytest.param(
+            """
+            [tool.django-stubs]
+            django_settings_module = "some.module"
+            django_configuration = "some.module.Dev"
+            """,
+            "invalid 'django_configuration': the setting must be a class name (as `DJANGO_CONFIGURATION`), "
+            "not a dotted path",
+            id="invalid django_configuration dotted path",
+        ),
+        pytest.param(
+            """
+            [tool.django-stubs]
+            django_settings_module = "some.module"
             strict_settings = "a"
             """,
             "invalid 'strict_settings': the setting must be a boolean",
@@ -182,6 +213,7 @@ def test_correct_toml_configuration(boolean_value: str) -> None:
     [tool.django-stubs]
     some_other_setting = "setting"
     django_settings_module = "my.module"
+    django_configuration = "Dev"
     strict_settings = {boolean_value}
     """
 
@@ -189,6 +221,7 @@ def test_correct_toml_configuration(boolean_value: str) -> None:
         config = DjangoPluginConfig(filename)
 
     assert config.django_settings_module == "my.module"
+    assert config.django_configuration == "Dev"
     assert config.strict_settings is (boolean_value == "true")
 
 
@@ -200,6 +233,7 @@ def test_correct_configuration(boolean_value: str) -> None:
             "[mypy.plugins.django-stubs]",
             "some_other_setting = setting",
             "django_settings_module = my.module",
+            "django_configuration = 'Dev'",
             f"strict_settings = {boolean_value}",
         ]
     )
@@ -207,6 +241,7 @@ def test_correct_configuration(boolean_value: str) -> None:
         config = DjangoPluginConfig(filename)
 
     assert config.django_settings_module == "my.module"
+    assert config.django_configuration == "Dev"
     assert config.strict_settings is (boolean_value.lower() == "true")
 
 
@@ -258,6 +293,7 @@ def test_toml_missing_section_with_env_var() -> None:
             config = DjangoPluginConfig(filename)
 
     assert config.django_settings_module == "my.module"
+    assert config.django_configuration is None
     assert config.strict_settings is True
 
 
@@ -274,4 +310,24 @@ def test_ini_missing_section_with_env_var() -> None:
             config = DjangoPluginConfig(filename)
 
     assert config.django_settings_module == "my.module"
+    assert config.django_configuration is None
     assert config.strict_settings is True
+
+
+def test_django_configuration_from_env_var() -> None:
+    """`django_configuration` falls back to the `DJANGO_CONFIGURATION` env var in both formats."""
+    toml_contents = """
+    [tool.django-stubs]
+    django_settings_module = "my.module"
+    """
+    ini_contents = "\n".join(
+        [
+            "[mypy.plugins.django-stubs]",
+            "django_settings_module = my.module",
+        ]
+    )
+    with mock.patch.dict(os.environ, {"DJANGO_CONFIGURATION": "Dev"}):
+        with write_to_file(toml_contents, suffix=".toml") as filename:
+            assert DjangoPluginConfig(filename).django_configuration == "Dev"
+        with write_to_file(ini_contents) as filename:
+            assert DjangoPluginConfig(filename).django_configuration == "Dev"

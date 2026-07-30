@@ -40,6 +40,7 @@ dependencies = [
 
 [project.optional-dependencies]
 compatible-mypy = ["mypy>=1.13,<2.4"]
+configurations = ["django-configurations"]
 oracle = ["oracledb"]
 redis = ["redis", "types-redis"]
 
@@ -59,7 +60,7 @@ tests = [
   "jinja2==3.1.6",
   "pyyaml==6.0.3",
   # typing:
-  "django-stubs[compatible-mypy,oracle,redis]",
+  "django-stubs[compatible-mypy,configurations,oracle,redis]",
 ]
 pyright = [
   "pyright==1.1.411",

@@ -112,6 +112,13 @@ The supported settings are:
 
   Specify the import path of your settings module, the same as Django’s [`DJANGO_SETTINGS_MODULE` environment variable](https://docs.djangoproject.com/en/stable/topics/settings/#designating-the-settings).
 
+- `django_configuration`, a string, default to `os.getenv(DJANGO_CONFIGURATION)`.
+
+  The name of your [`django-configurations`](https://github.com/jazzband/django-configurations)
+  `Configuration` class, the same as its `DJANGO_CONFIGURATION` environment variable. Setting it
+  (or the environment variable) enables built-in django-configurations support, as
+  [described below](https://github.com/typeddjango/django-stubs#how-to-use-a-custom-library-to-handle-django-settings).
+
 - `strict_settings`, a boolean, default `true`.
 
   Set to `false` if using dynamic settings, as [described below](https://github.com/typeddjango/django-stubs#how-to-use-a-custom-library-to-handle-django-settings).
