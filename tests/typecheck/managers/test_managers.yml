@@ -844,3 +844,30 @@
                 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
                 class UserProfile(AbstractBaseUser, PermissionsMixin):
                     pass
+
+-   case: test_declared_manager_is_used_when_runtime_class_is_patched
+    main: |
+        from typing_extensions import reveal_type
+        from myapp.models import MyModel
+        reveal_type(MyModel.objects)  # N: Revealed type is "myapp.models.MyManager[myapp.models.MyModel]"
+        reveal_type(MyModel.objects.custom())  # N: Revealed type is "int"
+        reveal_type(MyModel.objects.get())  # N: Revealed type is "myapp.models.MyModel"
+    installed_apps:
+        - myapp
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class MyManager(models.Manager):
+                    def custom(self) -> int:
+                        return 1
+
+                class MyModel(models.Model):
+                    objects = MyManager()
+
+                # Libraries like django-money and django-modeltranslation patch models on
+                # `class_prepared`, swapping the manager for a class built at runtime that
+                # has no type to look up. The declared `MyManager` should still be used.
+                MyModel.objects.__class__ = type("Patched", (MyManager,), {})

@@ -397,6 +397,11 @@ class AddManagers(ModelClassInitializer):
                     continue
 
             if manager_info is None:
+                # The runtime manager class is unresolvable, but the manager declared in
+                # the class body may well be typed
+                manager_info = self.lookup_declared_manager(manager_name)
+
+            if manager_info is None:
                 incomplete_manager_defs.add(manager_name)
                 continue
 
@@ -474,6 +479,34 @@ class AddManagers(ModelClassInitializer):
             return None
 
         return create_manager_info_from_from_queryset_call(self.api, expr.callee)
+
+    def lookup_declared_manager(self, name: str) -> TypeInfo | None:
+        """
+        Try to resolve the manager declared in the class body:
+
+            class MyModel(models.Model):
+                objects = MyManager()
+
+        Django's runtime manager class isn't always the declared one. Third party
+        libraries patch models on `class_prepared`, replacing the manager with a class
+        that's built at runtime and thus has no type to look up. The declared manager
+        is a better answer than falling back to `Any` in that case.
+        """
+
+        assign_statement = self.get_manager_expression(name)
+        if assign_statement is None:
+            return None
+
+        expr = assign_statement.rvalue
+        if (
+            not isinstance(expr, CallExpr)
+            or not isinstance(expr.callee, RefExpr)
+            or not isinstance(expr.callee.node, TypeInfo)
+            or not expr.callee.node.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME)
+        ):
+            return None
+
+        return expr.callee.node
 
 
 class AddDefaultManagerAttribute(ModelClassInitializer):
