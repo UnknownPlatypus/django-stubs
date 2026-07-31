@@ -1115,3 +1115,10 @@
 
                 class MyModel(models.Model):
                     objects = MyManager()
+
+-   case: test_from_queryset_handles_passed_a_non_queryset
+    main: |
+        from typing import Any
+        from django.db import models
+        class Invalid: ...
+        manager = models.Manager[Any].from_queryset(Invalid)  # E: Argument 1 to "from_queryset" of "BaseManager" has incompatible type "type[Invalid]"; expected "type[QuerySet[Any, Any]]"  [arg-type]

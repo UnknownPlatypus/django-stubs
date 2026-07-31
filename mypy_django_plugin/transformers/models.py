@@ -390,7 +390,11 @@ class AddManagers(ModelClassInitializer):
 
             if manager_info is None:
                 # We couldn't find a manager type, see if we should create one
-                manager_info = self.create_manager_from_from_queryset(manager_name)
+                try:
+                    manager_info = self.create_manager_from_from_queryset(manager_name)
+                except helpers.IncompleteDefnException:
+                    incomplete_manager_defs.add(manager_name)
+                    continue
 
             if manager_info is None:
                 incomplete_manager_defs.add(manager_name)
