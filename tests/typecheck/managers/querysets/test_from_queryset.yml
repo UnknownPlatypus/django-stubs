@@ -1122,3 +1122,39 @@
         from django.db import models
         class Invalid: ...
         manager = models.Manager[Any].from_queryset(Invalid)  # E: Argument 1 to "from_queryset" of "BaseManager" has incompatible type "type[Invalid]"; expected "type[QuerySet[Any, Any]]"  [arg-type]
+
+# Regression test for #1019: a queryset subclassing an untyped base is not a
+# recognisable `QuerySet` subclass, which used to be treated as "not resolved
+# yet" and left a `PlaceholderNode` behind, crashing mypy on serialization.
+-   case: test_from_queryset_with_untyped_queryset_base
+    mypy_config: |
+        [mypy-untyped_lib]
+        follow_imports = skip
+    installed_apps:
+        - myapp
+    main: |
+        from typing_extensions import reveal_type
+        from myapp.models import MyModel
+        reveal_type(MyModel.objects)  # N: Revealed type is "myapp.models.UnknownManager[myapp.models.MyModel]"
+    files:
+        -   path: untyped_lib.py
+            content: |
+                from django.db import models
+
+                class UntypedQuerySet(models.QuerySet): ...
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+                from untyped_lib import UntypedQuerySet
+
+                class CustomQuerySet(UntypedQuerySet): ...
+
+                CustomManager = models.Manager.from_queryset(CustomQuerySet)
+
+                class MyModel(models.Model):
+                    objects = CustomManager()
+    out: |
+        myapp/models:4: error: Class cannot subclass "UntypedQuerySet" (has type "Any")  [misc]
+        myapp/models:6: error: Need type annotation for "CustomManager"  [var-annotated]
+        myapp/models:9: error: Could not resolve manager type for "myapp.models.MyModel.objects"  [django-manager-missing]
