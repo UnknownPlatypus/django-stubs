@@ -274,6 +274,13 @@ django.db.models.expressions.rhs
 # require them to be keyword-only, so require all usage to be keyword-only.
 django.db.models.fields.Field.formfield
 
+# `description` is a read-only property on these two at runtime, but every other field
+# subclass -- and the documented custom field pattern -- assigns a plain lazy string to it.
+# Declaring it as a property turns those assignments into override errors, so the stub keeps
+# the `_Getter` union that `django.utils.functional` documents for exactly this case.
+django.db.models.fields.CharField.description
+django.db.models.fields.Field.description
+
 # Field.__get__/__set__ are stub-only for the mypy plugin, they don't exist at runtime
 django.db.models.fields.Field.__get__
 django.db.models.fields.Field.__set__
