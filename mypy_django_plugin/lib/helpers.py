@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict, cast
 from mypy import checker
 from mypy.checker import TypeChecker
 from mypy.checkmember import analyze_member_access as _mypy_analyze_member_access
+from mypy.expandtype import expand_type
 from mypy.lookup import lookup_fully_qualified
 from mypy.maptype import map_instance_to_supertype
 from mypy.mro import calculate_mro
@@ -38,6 +39,7 @@ from mypy.plugin import (
     MethodContext,
 )
 from mypy.semanal import SemanticAnalyzer
+from mypy.semanal_shared import has_placeholder
 from mypy.typeanal import make_optional_type
 from mypy.types import (
     AnyType,
@@ -64,7 +66,7 @@ from mypy_django_plugin.lib import fullnames
 mypy_version_info = tuple(map(int, mypy_version.partition("+")[0].split(".")))
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
     from django.db.models.base import Model
 
@@ -713,8 +715,31 @@ def get_model_from_expression(
     return None
 
 
-def fill_manager(manager: TypeInfo, typ: MypyType) -> Instance:
-    return Instance(manager, [typ] if manager.is_generic() else [])
+def fill_instance(typ: TypeInfo, args: Sequence[MypyType]) -> Instance:
+    """
+    Build an `Instance` of `typ`, adjusting `args` to the number of type vars `typ` declares:
+    - a non-generic class gets no args, for ex with user defined managers:
+
+        class CustomManager(models.Manager["MyModel"]):
+            pass
+
+    - extra args are dropped (e.g. a queryset arg for a manager class with a single type var)
+    - missing args are filled in from the remaining type vars' PEP 696 defaults, mirroring what
+      mypy does for underspecified annotations (raw `Instance(...)` doesn't apply defaults itself)
+    """
+    type_vars = typ.defn.type_vars
+    filled: list[MypyType] = list(args[: len(type_vars)])
+    env = {tv.id: arg for tv, arg in zip(type_vars, filled, strict=False)}
+    for type_var in type_vars[len(filled) :]:
+        if not type_var.has_default():
+            filled.append(AnyType(TypeOfAny.from_omitted_generics))
+        elif has_placeholder(type_var.default):
+            # The default isn't fully analyzed yet; defer to a later semanal iteration.
+            raise IncompleteDefnException(f"Type var default of {typ.fullname!r} is not ready")
+        else:
+            filled.append(expand_type(type_var.default, env))
+        env[type_var.id] = filled[-1]
+    return Instance(typ, filled)
 
 
 def merge_extra_attrs(
