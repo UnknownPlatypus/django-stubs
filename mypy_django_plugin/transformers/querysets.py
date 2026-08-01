@@ -87,7 +87,13 @@ def determine_proper_manager_type(ctx: FunctionContext) -> MypyType:
     ):
         return default_return_type
 
-    return default_return_type.copy_modified(args=[outer_model_info.self_type])
+    # Fill the remaining type vars (the queryset param) with `Any` rather than their default:
+    # the default (`QuerySet[Self]`) wouldn't be assignable to a custom manager's declared
+    # queryset type, and the model attribute's type is overwritten at semanal anyway.
+    remaining = len(default_return_type.type.defn.type_vars) - 1
+    return default_return_type.copy_modified(
+        args=[outer_model_info.self_type, *[AnyType(TypeOfAny.from_omitted_generics)] * remaining]
+    )
 
 
 def get_field_type_from_lookup(

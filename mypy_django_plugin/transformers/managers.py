@@ -22,6 +22,7 @@ from mypy.semanal_shared import has_placeholder
 from mypy.subtypes import find_member
 from mypy.types import AnyType, CallableType, Instance, ProperType, TypeOfAny, TypeType, UnionType, get_proper_type
 from mypy.types import Type as MypyType
+from mypy.typevars import fill_typevars_with_any
 
 from mypy_django_plugin.lib import fullnames, helpers
 
@@ -454,7 +455,7 @@ def add_as_manager_to_queryset_class(ctx: ClassDefContext) -> None:
         ctx.cls,
         "as_manager",
         args=[],
-        return_type=Instance(new_manager_info, [AnyType(TypeOfAny.from_omitted_generics)]),
+        return_type=fill_typevars_with_any(new_manager_info),
         is_classmethod=True,
     )
 
@@ -581,11 +582,9 @@ def reparametrize_any_manager_hook(ctx: ClassDefContext) -> None:
 
     is interpreted as:
 
-        _T = TypeVar('_T', covariant=True)
-        class MyManager(models.Manager[_T]): ...
-
-    Note that this does not happen if mypy is run with disallow_any_generics = True,
-    as not specifying the generic type is then considered an error.
+        _T = TypeVar("_T", bound=Model, covariant=True)
+        _QS = TypeVar("_QS", bound=QuerySet[Any], covariant=True, default=QuerySet[_T])
+        class MyManager(models.Manager[_T, _QS]): ...
     """
     reparametrize_generic_class(ctx, fullnames.BASE_MANAGER_CLASS_FULLNAME)
 
