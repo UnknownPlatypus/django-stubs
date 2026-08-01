@@ -14,6 +14,7 @@ from django.db.models.fields.related_descriptors import (
 from django.db.models.fields.reverse_related import ForeignObjectRel
 from django.db.models.sql.query import Query
 from mypy.errorcodes import NO_REDEF
+from mypy.maptype import map_instance_to_supertype
 from mypy.nodes import (
     ARG_NAMED,
     ARG_NAMED_OPT,
@@ -706,17 +707,34 @@ def gather_flat_args(ctx: MethodContext) -> list[tuple[Expression | None, Proper
     return lookups
 
 
-def _get_selected_fields_from_queryset_type(qs_type: Instance) -> set[str] | None:
+def _unwrap_manager_queryset(instance: Instance) -> Instance | None:
+    """Return the given QuerySet type as-is, or the queryset a Manager holds as its `_QS` type arg."""
+    if not instance.type.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME):
+        return instance
+    # Map to `BaseManager` so the queryset is found even when the manager subclass
+    # declares its own, differently laid out (or empty), type params.
+    base_manager_info = next(
+        base for base in instance.type.mro if base.fullname == fullnames.BASE_MANAGER_CLASS_FULLNAME
+    )
+    qs_arg = get_proper_type(map_instance_to_supertype(instance, base_manager_info).args[1])
+    return qs_arg if isinstance(qs_arg, Instance) else None
+
+
+def _get_selected_fields_from_queryset_or_manager_type(instance: Instance) -> set[str] | None:
     """
-    Derive selected field names from a QuerySet type.
+    Derive selected field names from a QuerySet type,
+    or from a Manager type by inspecting the queryset held as its second type arg.
 
     Sources:
       - values(): encoded in the row TypedDict keys
       - values_list(named=True): row is a NamedTuple; extract field names from fallback TypeInfo
-      - values_list(named=False): stored in qs_type.extra_attrs.immutable
+      - values_list(named=False): stored in instance.extra_attrs.immutable
     """
-    if len(qs_type.args) > 1:
-        row_type = get_proper_type(qs_type.args[1])
+    queryset = _unwrap_manager_queryset(instance)
+    if queryset is None:
+        return None
+    if len(queryset.args) > 1:
+        row_type = get_proper_type(queryset.args[1])
         if isinstance(row_type, Instance) and helpers.is_model_type(row_type.type):
             return None
         if isinstance(row_type, TypedDictType):
@@ -728,29 +746,34 @@ def _get_selected_fields_from_queryset_type(qs_type: Instance) -> set[str] | Non
         return set()
 
     # Fallback to explicit metadata attached to the QuerySet Instance
-    if qs_type.extra_attrs and qs_type.extra_attrs.immutable and isinstance(qs_type.extra_attrs.immutable, set):
-        return qs_type.extra_attrs.immutable
+    if queryset.extra_attrs and queryset.extra_attrs.immutable and isinstance(queryset.extra_attrs.immutable, set):
+        return queryset.extra_attrs.immutable
 
     return None
 
 
-def _get_annotated_fields_from_queryset_type(qs_type: Instance) -> set[str]:
+def _get_annotated_fields_from_queryset_or_manager_type(instance: Instance) -> set[str]:
     """
-    Derive annotated field names from a QuerySet type.
+    Derive annotated field names from a QuerySet type,
+    or from a Manager type by inspecting the queryset held as its second type arg.
 
     Sources:
       - args[0].extra_attrs: from .annotate() calls
       - args[1].extra_attrs: from WithAnnotations[Model, TypedDict]
     """
+    queryset = _unwrap_manager_queryset(instance)
+    if queryset is None:
+        return set()
+
     fields: set[str] = set()
 
-    if len(qs_type.args) >= 1:
-        model_type = get_proper_type(qs_type.args[0])
+    if len(queryset.args) >= 1:
+        model_type = get_proper_type(queryset.args[0])
         if isinstance(model_type, Instance) and model_type.extra_attrs:
             fields.update(model_type.extra_attrs.attrs.keys())
 
-    if len(qs_type.args) >= 2:
-        row_type = get_proper_type(qs_type.args[1])
+    if len(queryset.args) >= 2:
+        row_type = get_proper_type(queryset.args[1])
         if isinstance(row_type, Instance) and row_type.extra_attrs:
             fields.update(row_type.extra_attrs.attrs.keys())
 
@@ -776,13 +799,13 @@ def check_valid_attr_value(
     deselected_fields: set[str] | None = None
     annotated_fields: set[str] = set()
     if isinstance(ctx.type, Instance):
-        selected_fields = _get_selected_fields_from_queryset_type(ctx.type)
+        selected_fields = _get_selected_fields_from_queryset_or_manager_type(ctx.type)
         if selected_fields is not None:
             model_field_names = {f.name for f in django_context.get_model_fields(model.cls)}
             deselected_fields = model_field_names - selected_fields
             new_attr_names = new_attr_names or set()
             new_attr_names.update(selected_fields - model_field_names)
-        annotated_fields = _get_annotated_fields_from_queryset_type(ctx.type)
+        annotated_fields = _get_annotated_fields_from_queryset_or_manager_type(ctx.type)
 
     is_conflicting_attr_value = bool(
         # 1. Conflict with another symbol on the model (If not de-selected via a prior .values/.values_list call).
@@ -1192,8 +1215,12 @@ def validate_order_by(ctx: MethodContext, django_context: DjangoContext) -> Mypy
     if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
         return ctx.default_return_type
 
-    selected_fields = _get_selected_fields_from_queryset_type(ctx.type) if isinstance(ctx.type, Instance) else None
-    annotated_fields = _get_annotated_fields_from_queryset_type(ctx.type) if isinstance(ctx.type, Instance) else set()
+    selected_fields = (
+        _get_selected_fields_from_queryset_or_manager_type(ctx.type) if isinstance(ctx.type, Instance) else None
+    )
+    annotated_fields = (
+        _get_annotated_fields_from_queryset_or_manager_type(ctx.type) if isinstance(ctx.type, Instance) else set()
+    )
 
     for lookup_value in _extract_field_names_from_varargs(ctx):
         parts = lookup_value.removeprefix("-").split(LOOKUP_SEP)
@@ -1242,8 +1269,12 @@ def validate_distinct(ctx: MethodContext, django_context: DjangoContext) -> Mypy
     if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
         return ctx.default_return_type
 
-    selected_fields = _get_selected_fields_from_queryset_type(ctx.type) if isinstance(ctx.type, Instance) else None
-    annotated_fields = _get_annotated_fields_from_queryset_type(ctx.type) if isinstance(ctx.type, Instance) else set()
+    selected_fields = (
+        _get_selected_fields_from_queryset_or_manager_type(ctx.type) if isinstance(ctx.type, Instance) else None
+    )
+    annotated_fields = (
+        _get_annotated_fields_from_queryset_or_manager_type(ctx.type) if isinstance(ctx.type, Instance) else set()
+    )
 
     for lookup_value in _extract_field_names_from_varargs(ctx):
         parts = lookup_value.split(LOOKUP_SEP)
