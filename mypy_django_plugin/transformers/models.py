@@ -655,7 +655,10 @@ class AddReverseLookups(ModelClassInitializer):
         to_model_info = self.lookup_class_typeinfo_or_incomplete_defn_error(to_model_cls)
         to_model_instance = Instance(to_model_info, [])
 
-        reverse_lookup_declared = attname in self.model_classdef.info.names
+        # Only a user declaration wins, an accessor we added on an earlier pass stays overwritable,
+        # otherwise it keeps the imprecise queryset that pass could resolve before the manager existed.
+        declared_sym = self.model_classdef.info.names.get(attname)
+        reverse_lookup_declared = declared_sym is not None and not declared_sym.plugin_generated
         if isinstance(relation, OneToOneRel):
             if not reverse_lookup_declared:
                 self.add_new_var_to_model_class(

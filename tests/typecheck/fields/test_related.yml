@@ -1823,6 +1823,9 @@
         reveal_type(parent.children.get_queryset())  # N: Revealed type is "myapp.models.ChildQuerySet[myapp.models.Child, myapp.models.Child]"
         reveal_type(parent.declared_children.all())  # N: Revealed type is "myapp.models.DeclaredQuerySet[myapp.models.DeclaredChild, myapp.models.DeclaredChild]"
         reveal_type(Child.tags.through.objects.all())  # N: Revealed type is "django.db.models.query.QuerySet[myapp.models.Child_tags, myapp.models.Child_tags]"
+        # Class level access resolves the same queryset as the reverse manager above
+        reveal_type(Parent.children)  # N: Revealed type is "django.db.models.fields.related_descriptors.ReverseManyToOneDescriptor[myapp.models.Child, myapp.models.ChildQuerySet[myapp.models.Child, myapp.models.Child]]"
+        reveal_type(Parent.declared_children)  # N: Revealed type is "django.db.models.fields.related_descriptors.ReverseManyToOneDescriptor[myapp.models.DeclaredChild, myapp.models.DeclaredQuerySet[myapp.models.DeclaredChild, myapp.models.DeclaredChild]]"
     out: |
         myapp/models:24: error: Return type "DeclaredQuerySet[DeclaredChild, DeclaredChild]" of "get_queryset" incompatible with return type "_QS" in supertype "django.db.models.manager.BaseManager"  [override]
         myapp/models:24: error: Method "get_queryset" is not using @override but is overriding a method in class "django.db.models.manager.BaseManager"  [explicit-override]
