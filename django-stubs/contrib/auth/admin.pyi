@@ -1,7 +1,8 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin
+from django.contrib.admin.options import _FieldsetSpec
 from django.contrib.auth.models import Group, _UserType
 from django.db.models.fields.related import ManyToManyField
 from django.forms.models import ModelMultipleChoiceField
@@ -17,6 +18,7 @@ class GroupAdmin(admin.ModelAdmin[Group]):
 
 class UserAdmin(admin.ModelAdmin[_UserType]):
     change_user_password_template: Any
+    fieldsets: ClassVar[_FieldsetSpec]
     add_fieldsets: Any
     add_form: Any
     change_password_form: Any

@@ -63,6 +63,10 @@ django.utils.functional.Promise.__mod__
 # when trying to infer its type as a LiteralType (stubtest bug).
 django.contrib.gis.geos.prototypes.io.DEFAULT_TRIM_VALUE
 
+# The runtime value matches `_FieldsetSpec`, but stubtest only accepts a `dict` for a TypedDict
+# at the top level of a comparison, never for the `_FieldOpts` nested inside the fieldset tuples.
+django.contrib.auth.admin.UserAdmin.fieldsets
+
 # `classonlymethod` is an alias for `@classmethod` which is disjoint:
 django.utils.decorators.classonlymethod
 
