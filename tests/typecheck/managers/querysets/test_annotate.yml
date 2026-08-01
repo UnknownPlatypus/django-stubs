@@ -1073,3 +1073,34 @@
         annotated = qs.values("id").annotate(foo=models.Max("id"))
         reveal_type(annotated)  # N: Revealed type is "django.db.models.query.QuerySet[django.db.models.base.Model, dict[str, Any]]"
         return annotated.first()
+
+# Regression test for #2917, still failing: it documents the current behaviour.
+# `.annotate()` tracks annotated fields as `extra_attrs`, which a `-> Self` return type drops.
+- case: annotate_inside_custom_queryset_method_returning_self
+  main: |
+    from typing_extensions import reveal_type
+    from django.db import models
+    from myapp.models import Book, BookQuerySet
+
+    qs = Book.objects.all()
+    reveal_type(qs.annotate_author())  # N: Revealed type is "myapp.models.BookQuerySet[myapp.models.Book, myapp.models.Book]"
+    # Annotating directly keeps the field visible to `filter()`
+    qs.annotate(author=models.Value("x")).filter(author="blah")
+    # ... but going through the `-> Self` method loses it
+    qs.annotate_author().filter(author="blah")  # E: Cannot resolve keyword 'author' into field. Choices are: id, title  [misc]
+  installed_apps:
+    - myapp
+  files:
+    - path: myapp/__init__.py
+    - path: myapp/models.py
+      content: |
+        from django.db import models
+        from typing_extensions import Self
+
+        class BookQuerySet(models.QuerySet["Book"]):
+            def annotate_author(self) -> Self:
+                return self.annotate(author=models.Value("blah"))
+
+        class Book(models.Model):
+            title = models.CharField(max_length=10)
+            objects = models.Manager.from_queryset(BookQuerySet)()
