@@ -31,10 +31,12 @@ class ModelState:
 class ModelBase(type):
     def __new__(cls, name: str, bases: tuple[type, ...], attrs: dict[str, Any], **kwargs: Any) -> ModelBase: ...
     def add_to_class(cls, name: str, value: Any) -> None: ...
+    # `ty` doesn't expand the `QuerySet[_T]` PEP 696 default here,
+    # so the queryset param is spelled out to keep it resolving to `QuerySet[_Self]`.
     @property
-    def _base_manager(cls: type[_Self]) -> Manager[_Self]: ...  # type: ignore[misc]
+    def _base_manager(cls: type[_Self]) -> Manager[_Self, QuerySet[_Self]]: ...  # type: ignore[misc]
     @property
-    def _default_manager(cls: type[_Self]) -> Manager[_Self]: ...  # type: ignore[misc]
+    def _default_manager(cls: type[_Self]) -> Manager[_Self, QuerySet[_Self]]: ...  # type: ignore[misc]
 
 class Model(AltersData, metaclass=ModelBase):
     # These attributes should only exist on concrete subclasses, not abstract models, and are

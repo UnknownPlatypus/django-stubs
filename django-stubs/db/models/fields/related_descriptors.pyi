@@ -13,10 +13,12 @@ from django.utils.functional import cached_property
 from typing_extensions import Never, Self, TypeVar, override
 
 _M = TypeVar("_M", bound=Model)
+_M_QS = TypeVar("_M_QS", bound=QuerySet[Any], covariant=True, default=QuerySet[_M])
 _F = TypeVar("_F", bound=Field[Any, Any])
 _From = TypeVar("_From", bound=Model)
 _Through = TypeVar("_Through", bound=Model, default=Model)
 _To = TypeVar("_To", bound=Model)
+_To_QS = TypeVar("_To_QS", bound=QuerySet[Any], covariant=True, default=QuerySet[_To])
 
 class ForeignKeyDeferredAttribute(DeferredAttribute):
     field: RelatedField[Any, Any]
@@ -71,7 +73,7 @@ class ReverseOneToOneDescriptor(Generic[_From, _To]):
     @override
     def __reduce__(self) -> tuple[Callable[..., Any], tuple[type[_To], str]]: ...
 
-class ReverseManyToOneDescriptor(Generic[_To]):
+class ReverseManyToOneDescriptor(Generic[_To, _To_QS]):
     """
     In the example::
 
@@ -85,18 +87,18 @@ class ReverseManyToOneDescriptor(Generic[_To]):
     field: ForeignKey[_To, _To]
     def __init__(self, rel: ManyToOneRel) -> None: ...
     @cached_property
-    def related_manager_cls(self) -> type[RelatedManager[_To]]: ...
+    def related_manager_cls(self) -> type[RelatedManager[_To, _To_QS]]: ...
     @overload
     def __get__(self, instance: None, cls: Any | None = None) -> Self: ...
     @overload
-    def __get__(self, instance: Model, cls: Any | None = None) -> RelatedManager[_To]: ...
+    def __get__(self, instance: Model, cls: Any | None = None) -> RelatedManager[_To, _To_QS]: ...
     def __set__(self, instance: Any, value: Any) -> Never: ...
 
 # Fake class, Django defines 'RelatedManager' inside a function body
 @type_check_only
-class RelatedManager(Manager[_To], Generic[_To]):
+class RelatedManager(Manager[_To, _To_QS], Generic[_To, _To_QS]):
     related_val: tuple[int, ...]
-    def __call__(self, *, manager: str) -> RelatedManager[_To]: ...
+    def __call__(self, *, manager: str) -> RelatedManager[_To, _To_QS]: ...
     def add(self, *objs: _To | int, bulk: bool = ...) -> None: ...
     async def aadd(self, *objs: _To | int, bulk: bool = ...) -> None: ...
     def remove(self, *objs: _To | int, bulk: bool = ...) -> None: ...
@@ -119,8 +121,8 @@ class RelatedManager(Manager[_To], Generic[_To]):
     ) -> None: ...
 
 def create_reverse_many_to_one_manager(
-    superclass: type[BaseManager[_M]], rel: ManyToOneRel
-) -> type[RelatedManager[_M]]: ...
+    superclass: type[BaseManager[_M, _M_QS]], rel: ManyToOneRel
+) -> type[RelatedManager[_M, _M_QS]]: ...
 
 class ManyToManyDescriptor(ReverseManyToOneDescriptor[Any], Generic[_To, _Through]):
     """
