@@ -280,6 +280,17 @@ django.forms.models.modelformset_factory
 django.db.models.manager.BaseManager.__get__
 django.db.models.manager.EmptyManager.__get__
 
+# These models are not in the default app registry (backend-internal or generated at runtime),
+# so the plugin does not redeclare their `objects` and it only resolves for the other type heckers,
+through the `ModelBase.__getattr__` fallback that stubtest cannot see.
+django.contrib.gis.db.backends.oracle.models.OracleGeometryColumns.objects
+django.contrib.gis.db.backends.oracle.models.OracleSpatialRefSys.objects
+django.contrib.gis.db.backends.postgis.models.PostGISGeometryColumns.objects
+django.contrib.gis.db.backends.postgis.models.PostGISSpatialRefSys.objects
+django.contrib.gis.db.backends.spatialite.models.SpatialiteGeometryColumns.objects
+django.contrib.gis.db.backends.spatialite.models.SpatialiteSpatialRefSys.objects
+django.db.migrations.recorder.MigrationRecorder.Migration.objects
+
 # Field.__get__/__set__ are stub-only for the mypy plugin, they don't exist at runtime
 django.contrib.contenttypes.fields.GenericForeignKey.__get__
 django.db.models.fields.Field.__get__
