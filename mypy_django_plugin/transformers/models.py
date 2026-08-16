@@ -373,6 +373,20 @@ class AddManagers(ModelClassInitializer):
         manager_type = helpers.fill_manager(manager_info, Instance(self.model_classdef.info, []))
         self.add_new_var_to_model_class(manager_name, manager_type, is_classvar=True)
 
+    def align_manager_assignment(self, manager_name: str) -> None:
+        """
+        The plugin inserts managers as `ClassVar`s, but a manager assignment in the class body
+        keeps its own `Var`, seen as an instance variable. Overriding an inherited manager,
+        e.g. `class MyUser(User): objects = MyUserManager()`, would then be a ClassVar/instance
+        variable mismatch. Mark the assignment as a `ClassVar` too; type compatibility with the
+        parent manager remains enforced.
+        """
+        manager_expr = self.get_manager_expression(manager_name)
+        if manager_expr is not None and isinstance(manager_expr.lvalues[0], NameExpr):
+            node = manager_expr.lvalues[0].node
+            if isinstance(node, Var):
+                node.is_classvar = True
+
     @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
         manager_info: TypeInfo | None
@@ -382,6 +396,7 @@ class AddManagers(ModelClassInitializer):
             manager_node = self.model_classdef.info.get(manager_name)
             manager_fullname = helpers.get_class_fullname(manager.__class__)
             manager_info = self.lookup_manager(manager_fullname, manager)
+            self.align_manager_assignment(manager_name)
 
             if manager_node and manager_node.type is not None:
                 # Manager is already typed -> do nothing unless it's a dynamically generated manager
@@ -1096,8 +1111,36 @@ class MetaclassAdjustments(ModelClassInitializer):
                 MDEF, model_exc_type, plugin_generated=True
             )
 
+    def declares_objects_fallback(self, metaclass: TypeInfo) -> bool:
+        """
+        Whether the metaclass declares the stubs' `objects` fallback:
+        `def __getattr__(cls, name: Literal["objects"]) -> <Manager>` (e.g. `_SiteModelBase`).
+
+        The `__getattr__` signature cannot be inspected here as it may not be analyzed yet,
+        but only these stubs declare a `__getattr__` on a `ModelBase` subclass. Checking the
+        module also guarantees user-defined metaclasses are never detached from their models.
+        """
+        return metaclass.module_name.startswith("django.") and "__getattr__" in metaclass.names
+
     @override
     def run(self) -> None:
+        # Stub-only `ModelBase` subclasses redeclare the `objects` fallback with a specialized
+        # manager for the other type checkers. mypy mishandles their `__getattr__` (see
+        # `adjust_model_class`) and deleting it, like it's done for `ModelBase`, breaks the
+        # semantic analysis fixpoint. Instead point the model back at `ModelBase`, which the
+        # plugin has already stripped of its `__getattr__`; the manager is restored by the plugin.
+        metaclass = self.model_classdef.info.metaclass_type
+        if (
+            metaclass is not None
+            and metaclass.type.fullname != fullnames.MODEL_METACLASS_FULLNAME
+            and self.declares_objects_fallback(metaclass.type)
+        ):
+            model_base = self.lookup_typeinfo(fullnames.MODEL_METACLASS_FULLNAME)
+            if model_base is not None:
+                instance = Instance(model_base, [])
+                self.model_classdef.info.declared_metaclass = instance
+                self.model_classdef.info.metaclass_type = instance
+
         self.add_exception_classes()
 
 
