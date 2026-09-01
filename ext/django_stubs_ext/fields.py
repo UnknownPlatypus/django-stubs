@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from django.core.validators import _ValidatorCallable
     from django.db.models.expressions import Expression
     from django.db.models.fields import NOT_PROVIDED
-    from django.db.models.fields.reverse_related import ForeignObjectRel
     from django.utils.choices import _ChoicesInput
     from django.utils.functional import _StrOrPromise
 
@@ -36,7 +35,6 @@ class FieldInitKwargs(TypedDict, Generic[_DB], total=False, closed=True):
     unique: bool
     blank: bool
     db_index: bool
-    rel: ForeignObjectRel | None
     default: Any
     editable: bool
     serialize: bool

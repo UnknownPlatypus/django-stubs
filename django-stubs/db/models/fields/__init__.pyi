@@ -162,6 +162,7 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
         name: str | None = None,
         *,
         null: bool = False,
+        rel: ForeignObjectRel | None = None,
         **kwargs: Unpack[FieldInitKwargs[_ST]],
     ) -> None: ...
     @type_check_only

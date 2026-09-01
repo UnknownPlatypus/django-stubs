@@ -7,7 +7,7 @@ from django.core.validators import _ValidatorCallable
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.models.base import Model
 from django.db.models.expressions import Combinable, Expression
-from django.db.models.fields import NOT_PROVIDED, Field, _AllLimitChoicesTo, _ErrorMessagesMapping, _LimitChoicesTo
+from django.db.models.fields import Field, _AllLimitChoicesTo, _ErrorMessagesMapping, _LimitChoicesTo
 from django.db.models.fields.mixins import FieldCacheMixin
 from django.db.models.fields.related_descriptors import ForeignKeyDeferredAttribute, ManyRelatedManager
 from django.db.models.fields.related_descriptors import ForwardManyToOneDescriptor as ForwardManyToOneDescriptor
@@ -82,8 +82,6 @@ class ForeignObject(RelatedField[_ST, _GT]):
     column: None
     from_fields: Sequence[str]
     to_fields: Sequence[str | None]  # None occurs in ForeignKey, where to_field defaults to None
-    # Spelled out rather than `Unpack[FieldInitKwargs]`: the runtime takes `rel` positionally,
-    # which would collide with the TypedDict's `rel` item.
     def __init__(
         self,
         to: type[Model] | str,
@@ -97,25 +95,10 @@ class ForeignObject(RelatedField[_ST, _GT]):
         parent_link: bool = False,
         swappable: bool = True,
         *,
-        verbose_name: _StrOrPromise | None = ...,
-        name: str | None = ...,
-        primary_key: bool = ...,
-        unique: bool = ...,
-        blank: bool = ...,
-        null: bool = ...,
-        db_index: bool = ...,
-        default: Any = ...,
-        db_default: type[NOT_PROVIDED] | Expression | _ST = ...,
-        editable: bool = ...,
-        auto_created: bool = ...,
-        serialize: bool = ...,
-        choices: _Choices | None = ...,
-        help_text: _StrOrPromise = ...,
-        db_column: str | None = ...,
-        db_tablespace: str | None = ...,
-        validators: Iterable[_ValidatorCallable] = ...,
-        error_messages: _ErrorMessagesMapping | None = ...,
-        db_comment: str | None = ...,
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST]],
     ) -> None: ...
     @type_check_only
     @override
