@@ -374,6 +374,29 @@ class AddManagers(ModelClassInitializer):
         manager_type = helpers.fill_manager(manager_info, Instance(self.model_classdef.info, []))
         self.add_new_var_to_model_class(manager_name, manager_type, is_classvar=True)
 
+    def align_manager_assignment(self, manager_name: str) -> None:
+        """
+        The plugin inserts managers as `ClassVar`s, but a manager assignment in the class body
+        keeps its own `Var`, seen as an instance variable. Overriding an inherited manager,
+        e.g. `class MyUser(User): objects = MyUserManager()`, would then be a ClassVar/instance
+        variable mismatch. Mark the assignment as a `ClassVar` too, but only when it overrides one:
+        anything else (no base declaration, or a bare `objects: Manager` annotation on an abstract
+        base) keeps regular inference. Type compatibility with the parent manager remains enforced.
+        """
+        manager_expr = self.get_manager_expression(manager_name)
+        if manager_expr is None or not isinstance(manager_expr.lvalues[0], NameExpr):
+            return
+        node = manager_expr.lvalues[0].node
+        if not isinstance(node, Var):
+            return
+        for base in self.model_classdef.info.mro[1:]:
+            inherited = base.names.get(manager_name)
+            if inherited is None:
+                continue
+            if isinstance(inherited.node, Var) and inherited.node.is_classvar:
+                node.is_classvar = True
+            return
+
     @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
         manager_info: TypeInfo | None
@@ -383,6 +406,7 @@ class AddManagers(ModelClassInitializer):
             manager_node = self.model_classdef.info.get(manager_name)
             manager_fullname = helpers.get_class_fullname(manager.__class__)
             manager_info = self.lookup_manager(manager_fullname, manager)
+            self.align_manager_assignment(manager_name)
 
             if manager_node and manager_node.type is not None:
                 # Manager is already typed -> do nothing unless it's a dynamically generated manager

@@ -316,33 +316,33 @@
                 class MyModel4(ParentOfMyModel4):
                     objects: ClassVar[models.Manager["MyModel4"]] = models.Manager["MyModel4"]()
 
-# TODO: make it work someday
-#-   case: inheritance_of_two_models_with_custom_objects_manager
-#    main: |
-#        from typing_extensions import reveal_type
-#        from myapp.models import MyBaseUser, MyUser
-#        reveal_type(MyBaseUser.objects)  # N: Revealed type is "myapp.models.MyBaseManager[myapp.models.MyBaseUser]"
-#        reveal_type(MyBaseUser.objects.get())  # N: Revealed type is "myapp.models.MyBaseUser"
-#
-#        reveal_type(MyUser.objects)  # N: Revealed type is "myapp.models.MyManager[myapp.models.MyUser]"
-#        reveal_type(MyUser.objects.get())  # N: Revealed type is "myapp.models.MyUser"
-#    installed_apps:
-#        - myapp
-#    files:
-#        -   path: myapp/__init__.py
-#        -   path: myapp/models.py
-#            content: |
-#                from django.db import models
-#
-#                class MyBaseManager(models.Manager):
-#                    pass
-#                class MyBaseUser(models.Model):
-#                    objects = MyBaseManager()
-#
-#                class MyManager(models.Manager):
-#                    pass
-#                class MyUser(MyBaseUser):
-#                    objects = MyManager()
+-   case: overriding_a_manager_annotated_on_an_abstract_base
+    main: |
+        from typing_extensions import reveal_type
+        from myapp.models import HeatingSite, AirzoneSite
+        reveal_type(HeatingSite.objects)  # N: Revealed type is "django.db.models.manager.Manager[myapp.models.HeatingSite]"
+        reveal_type(AirzoneSite.objects)  # N: Revealed type is "myapp.models.AirzoneSiteManager"
+    installed_apps:
+        - myapp
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class HeatingSite(models.Model):
+                    # A bare annotation is an instance variable to mypy, so the override below
+                    # must not be turned into a `ClassVar`.
+                    objects: models.Manager["HeatingSite"]
+
+                    class Meta:
+                        abstract = True
+
+                class AirzoneSiteManager(models.Manager["AirzoneSite"]):
+                    pass
+
+                class AirzoneSite(HeatingSite):
+                    objects = AirzoneSiteManager()
 
 -   case: custom_manager_returns_proper_model_types
     main: |
