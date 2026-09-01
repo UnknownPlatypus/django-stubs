@@ -1,7 +1,7 @@
-from typing import Any, ClassVar
+from typing import Any, Literal
 
 from django.db import models
-from django.db.models.base import Model
+from django.db.models.base import Model, ModelBase
 from django.db.models.expressions import Combinable
 from django.db.models.query import QuerySet
 
@@ -13,11 +13,13 @@ class ContentTypeManager(models.Manager[ContentType]):
     def get_for_id(self, id: int) -> ContentType: ...
     def clear_cache(self) -> None: ...
 
-class ContentType(models.Model):
+class _ContentTypeModelBase(ModelBase):
+    def __getattr__(cls, name: Literal["objects"]) -> ContentTypeManager: ...  # type: ignore[misc]
+
+class ContentType(models.Model, metaclass=_ContentTypeModelBase):
     id: int
     app_label: models.CharField[str | int | Combinable, str]
     model: models.CharField[str | int | Combinable, str]
-    objects: ClassVar[ContentTypeManager]
     @property
     def name(self) -> str: ...
     @property
