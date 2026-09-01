@@ -74,7 +74,7 @@ def custom_generic_field() -> None:
 
     instance = MyModel()
     assert_type(instance.field, int)
-    assert_type(instance.null_field, int | None)  # pyright: ignore[reportAssertTypeFailure] # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+    assert_type(instance.null_field, int | None)  # pyright: ignore[reportAssertTypeFailure] # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
     instance.field = 1.2
     instance.field = 12
     instance.field = "12"
@@ -230,7 +230,7 @@ def custom_model_field_override_init_via_overloads() -> None:
     MyIntegerField(nul=True)  # type: ignore[call-overload] # pyrefly: ignore[no-matching-overload] # ty: ignore[no-matching-overload] # pyright: ignore[reportCallIssue] # fmt: skip
 
     assert_type(User().custom_int, int)
-    assert_type(User().custom_int_nullable, int | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+    assert_type(User().custom_int_nullable, int | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 
 def concrete_custom_field_null_requires_optional_get_type() -> None:

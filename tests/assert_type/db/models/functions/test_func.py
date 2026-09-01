@@ -20,29 +20,31 @@ def func_resolve_output_field() -> None:
     bin_right = Right("username", 5, output_field=BinaryField())
     str_right = Right("username", 5)  # Default to `CharField` per `Right.output_field`
 
-    assert_type(  # False positive -> # ty: ignore[type-assertion-failure]  # pyrefly: ignore[assert-type]
+    # pyrefly drops the PEP 696 defaults of a `BinaryField()` argument when it is inferred against
+    # the `_SubstrOutputField | None` parameter, revealing `BinaryField[Any, Any]`. No upstream issue yet.
+    assert_type(  # ty: ignore[type-assertion-failure]  # https://github.com/astral-sh/ty/issues/2799  # pyrefly: ignore[assert-type]
         bin_sub,
         Substr[BinaryField[bytes | bytearray | memoryview[int], bytes | memoryview[int]]],
     )
     assert_type(str_sub, Substr[CharField[str | int, str]])
 
-    assert_type(  # False positive -> # ty: ignore[type-assertion-failure]  # pyrefly: ignore[assert-type]
+    assert_type(  # ty: ignore[type-assertion-failure]  # https://github.com/astral-sh/ty/issues/2799  # pyrefly: ignore[assert-type]
         bin_left,
         Left[BinaryField[bytes | bytearray | memoryview[int], bytes | memoryview[int]]],
     )
     assert_type(str_left, Left[CharField[str | int, str]])
 
-    assert_type(  # False positive -> # ty: ignore[type-assertion-failure]  # pyrefly: ignore[assert-type]
+    assert_type(  # ty: ignore[type-assertion-failure]  # https://github.com/astral-sh/ty/issues/2799  # pyrefly: ignore[assert-type]
         bin_right,
         Right[BinaryField[bytes | bytearray | memoryview[int], bytes | memoryview[int]]],
     )
     assert_type(str_right, Right[CharField[str | int, str]])
 
-    expect_func_binary(bin_sub)  # False positive -> # ty: ignore[invalid-argument-type]
+    expect_func_binary(bin_sub)  # ty: ignore[invalid-argument-type]  # https://github.com/astral-sh/ty/issues/2799
     expect_func_binary(str_sub)  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]  # pyrefly: ignore[bad-argument-type]  # ty: ignore[invalid-argument-type]
 
-    expect_func_binary(bin_left)  # False positive -> # ty: ignore[invalid-argument-type]
+    expect_func_binary(bin_left)  # ty: ignore[invalid-argument-type]  # https://github.com/astral-sh/ty/issues/2799
     expect_func_binary(str_left)  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]  # pyrefly: ignore[bad-argument-type]  # ty: ignore[invalid-argument-type]
 
-    expect_func_binary(bin_right)  # False positive -> # ty: ignore[invalid-argument-type]
+    expect_func_binary(bin_right)  # ty: ignore[invalid-argument-type]  # https://github.com/astral-sh/ty/issues/2799
     expect_func_binary(str_right)  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]  # pyrefly: ignore[bad-argument-type]  # ty: ignore[invalid-argument-type]

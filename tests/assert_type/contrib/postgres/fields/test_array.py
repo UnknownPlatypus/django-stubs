@@ -34,5 +34,7 @@ def array_field_base_field_parsed_into_generic_typevar() -> None:
 
     my_model = MyModel(untyped=[], members=[1, 2], members_as_text=["A", "B"])
     assert_type(my_model.untyped, list[Any])
-    assert_type(my_model.members, list[int])  # False positive -> # pyrefly: ignore[assert-type]
-    assert_type(my_model.members_as_text, list[str])  # False positive -> # pyrefly: ignore[assert-type]
+    # pyrefly drops the base field's PEP 696 defaults when solving `_GT_Array`, revealing `list[Any]`.
+    # No upstream issue yet.
+    assert_type(my_model.members, list[int])  # pyrefly: ignore[assert-type]
+    assert_type(my_model.members_as_text, list[str])  # pyrefly: ignore[assert-type]

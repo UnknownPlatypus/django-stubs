@@ -428,12 +428,12 @@ Django `models.Field` (and subclasses) are generic types with two parameters:
 - `_ST`: type that can be used when setting a value
 - `_GT`: type that will be returned when getting a value
 
-The `null=...` and `primary_key=...` flags are resolved at the call site by the
-fields' constructor overloads: `IntegerField(null=True)` is an
-`IntegerField[float | int | str | None, int | None]`, and
-`IntegerField(primary_key=True)` accepts `None` on assignment (the
-`obj.pk = None` clone idiom) while still reading as `int`. This works on every
-type checker, without the mypy plugin.
+The `null=...` flag is resolved at the call site by the fields' constructor
+overloads: `IntegerField(null=True)` is an
+`IntegerField[float | int | str | None, int | None]`. This works on every type
+checker, without the mypy plugin. Narrowing based on `primary_key=` or
+`default=` (e.g. accepting `None` on assignment for the `obj.pk = None` clone
+idiom) is only provided by the mypy plugin.
 
 When you create a subclass, you have several options depending on how strict you
 want the type to be for consumers of your custom field.
@@ -592,7 +592,7 @@ class MyIntegerField(models.IntegerField[_ST, _GT]):
         name: str | None = None,
         *,
         null: bool = False,
-        **kwargs: Unpack[FieldInitKwargs[float | int | str]],
+        **kwargs: Unpack[FieldInitKwargs[_ST]],
     ) -> None: ...
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -611,7 +611,7 @@ If your field adds its own constructor arguments, declare them explicitly next
 to `null` in both overloads.
 
 > [!WARNING]
-> ty ≥ 0.0.40 has a generics-solver regression (upstream report pending) that
+> ty ≥ 0.0.40 has a generics-solver regression ([astral-sh/ty#3990](https://github.com/astral-sh/ty/issues/3990)) that
 > prevents solving a contravariant TypeVar from a `self` annotation, so this
 > overload mechanism — including the bundled fields' own `null=True` overloads —
 > currently falls back to the non-null types on ty. The explicit

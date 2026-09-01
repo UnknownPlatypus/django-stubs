@@ -22,7 +22,7 @@ def positional_overload_args_with_null_true_select_nullable_overload() -> None:
         addr = models.GenericIPAddressField(None, None, "both", False, null=True)  # protocol/unpack_ipv4
 
     # ty infers the non-nullable read type here (it doesn't reflect nullable-overload reads --
-    # regressed in ty >=0.0.40, same as the custom-field cases); mypy/pyright/pyrefly are correct.
+    # https://github.com/astral-sh/ty/issues/3990); mypy/pyright/pyrefly are correct.
     instance = MyModel()
     assert_type(instance.amount, decimal.Decimal | None)  # ty: ignore[type-assertion-failure]
     assert_type(instance.day, datetime.date | None)  # ty: ignore[type-assertion-failure]

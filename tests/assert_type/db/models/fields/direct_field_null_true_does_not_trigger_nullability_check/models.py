@@ -13,7 +13,7 @@ class Article(models.Model):
 
 def direct_field_null_true_does_not_trigger_nullability_check() -> None:
     null_field = models.IntegerField(null=True)
-    assert_type(null_field, IntegerField[float | int | str | None, int | None])  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+    assert_type(null_field, IntegerField[float | int | str | None, int | None])  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
     not_null_field = models.IntegerField(null=False)
     assert_type(not_null_field, IntegerField[float | int | str, int])

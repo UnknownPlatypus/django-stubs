@@ -87,58 +87,58 @@ instance = AllFields()
 assert_type(instance.id, int)
 
 assert_type(instance.integer, int)
-assert_type(instance.null_integer, int | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_integer, int | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.small_int, int)
-assert_type(instance.null_small_int, int | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_small_int, int | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.big_int, int)
-assert_type(instance.null_big_int, int | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_big_int, int | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.pos_int, int)
-assert_type(instance.null_pos_int, int | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_pos_int, int | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.pos_small_int, int)
-assert_type(instance.null_pos_small_int, int | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_pos_small_int, int | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.pos_big_int, int)
-assert_type(instance.null_pos_big_int, int | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_pos_big_int, int | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 assert_type(instance.flt, float)
-assert_type(instance.null_flt, float | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_flt, float | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.dec, decimal.Decimal)
-assert_type(instance.null_dec, decimal.Decimal | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_dec, decimal.Decimal | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 assert_type(instance.name, str)
-assert_type(instance.null_name, str | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_name, str | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.slug, str)
-assert_type(instance.null_slug, str | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_slug, str | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.text, str)
-assert_type(instance.null_text, str | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_text, str | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.csv_int, str)
-assert_type(instance.null_csv_int, str | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_csv_int, str | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.email, str)
-assert_type(instance.null_email, str | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_email, str | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.url, str)
-assert_type(instance.null_url, str | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_url, str | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 assert_type(instance.flag, bool)
-assert_type(instance.null_flag, bool | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_flag, bool | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 assert_type(instance.ip, str)
-assert_type(instance.null_ip, str | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_ip, str | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.gen_ip, str)
-assert_type(instance.null_gen_ip, str | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_gen_ip, str | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 assert_type(instance.day, datetime.date)
-assert_type(instance.null_day, datetime.date | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_day, datetime.date | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.moment, datetime.datetime)
-assert_type(instance.null_moment, datetime.datetime | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_moment, datetime.datetime | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.clock, datetime.time)
-assert_type(instance.null_clock, datetime.time | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_clock, datetime.time | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 assert_type(instance.duration, datetime.timedelta)
-assert_type(instance.null_duration, datetime.timedelta | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_duration, datetime.timedelta | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 assert_type(instance.uid, uuid.UUID)
-assert_type(instance.null_uid, uuid.UUID | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_uid, uuid.UUID | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 assert_type(instance.blob, bytes | memoryview[int])
-assert_type(instance.null_blob, bytes | memoryview[int] | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+assert_type(instance.null_blob, bytes | memoryview[int] | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 assert_type(instance.payload, Any)
 # JSONField/FilePathField parametrize on `Any`; the plugin folds `| None` for mypy, but
@@ -154,13 +154,13 @@ def if_field_called_on_class_return_field_itself() -> None:
         AllFields.name.field,
         CharField[str | int, str],
     )
-    assert_type(AllFields.null_name.field, CharField[str | int | None, str | None])  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+    assert_type(AllFields.null_name.field, CharField[str | int | None, str | None])  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 
 def null_char_field_allows_none() -> None:
     AllFields(null_name="")
     AllFields(null_name=None)
-    AllFields().null_name = None  # ty: ignore[invalid-assignment] # regressed in ty >=0.0.40
+    AllFields().null_name = None  # ty: ignore[invalid-assignment] # https://github.com/astral-sh/ty/issues/3990
 
 
 def not_null_charfield_does_not_allow_none() -> None:
@@ -190,7 +190,7 @@ def fields_inside_mixins_used_in_model_subclasses_resolved_as_primitives() -> No
         pass
 
     assert_type(MyModel().username, str)
-    assert_type(MyModel().null_username, str | None)  # ty: ignore[type-assertion-failure] # regressed in ty >=0.0.40
+    assert_type(MyModel().null_username, str | None)  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 
 def test_small_auto_field_class_presents_as_int() -> None:
@@ -242,4 +242,4 @@ def nullable_field_with_strict_optional_true() -> None:
         text = models.CharField(max_length=100)
 
     MyModel().text = None  # type: ignore[assignment] # pyrefly:ignore[bad-argument-type] # ty:ignore[invalid-assignment] # pyright:ignore[reportAttributeAccessIssue]
-    MyModel().text_nullable = None  # ty: ignore[invalid-assignment] # regressed in ty >=0.0.40
+    MyModel().text_nullable = None  # ty: ignore[invalid-assignment] # https://github.com/astral-sh/ty/issues/3990

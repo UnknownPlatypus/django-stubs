@@ -76,7 +76,7 @@ def group_fields_are_inferred() -> None:
 def user_fields_are_inferred() -> None:
     user = User()
     assert_type(user.password, str)
-    assert_type(user.last_login, datetime | None)  # ty: ignore[type-assertion-failure]
+    assert_type(user.last_login, datetime | None)  # ty: ignore[type-assertion-failure]  # https://github.com/astral-sh/ty/issues/3990
     assert_type(user.username, str)
     assert_type(user.first_name, str)
     assert_type(user.last_name, str)

@@ -12,6 +12,9 @@ reversed_url = reverse("url")
 lazy_url = reverse_lazy("namespace:url")
 
 
+# pyrefly doesn't apply the descriptor protocol to the union-typed
+# `AbstractBaseUser.is_active: bool | BooleanField[...]`, so the lambda returns
+# `BooleanField | bool` for it. No upstream issue yet.
 @user_passes_test(lambda user: user.is_active, login_url=reversed_url)  # pyrefly: ignore[bad-argument-type]
 def my_view1(request: HttpRequest) -> HttpResponse:
     raise NotImplementedError
