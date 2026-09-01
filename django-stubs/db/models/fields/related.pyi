@@ -82,6 +82,8 @@ class ForeignObject(RelatedField[_ST, _GT]):
     column: None
     from_fields: Sequence[str]
     to_fields: Sequence[str | None]  # None occurs in ForeignKey, where to_field defaults to None
+    # Spelled out rather than `Unpack[FieldInitKwargs]`: the runtime takes `rel` positionally,
+    # which would collide with the TypedDict's `rel` item.
     def __init__(
         self,
         to: type[Model] | str,

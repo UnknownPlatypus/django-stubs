@@ -153,6 +153,9 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
     system_check_removed_details: Any | None
     system_check_deprecated_details: Any | None
     non_db_attrs: tuple[str, ...]
+    # Concrete subclasses overload `__init__` twice: `null: Literal[True]` with a `self: C[ST | None, GT | None]`
+    # annotation so a nullable field reads and writes `None`, then a fallback with a plain `null: bool` that
+    # keeps the class defaults (and any explicit `C[A, B]()` parametrization) for every other call.
     def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
@@ -264,7 +267,7 @@ _GT_Int = TypeVar("_GT_Int", covariant=True, default=int)
 class IntegerField(Field[_ST_Int, _GT_Int]):
     _pyi_lookup_exact_type: str | int
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: IntegerField[float | int | str | None, int | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -273,7 +276,7 @@ class IntegerField(Field[_ST_Int, _GT_Int]):
         **kwargs: Unpack[FieldInitKwargs[float | int | str | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -287,7 +290,7 @@ class PositiveIntegerRelDbTypeMixin:
 
 class SmallIntegerField(IntegerField[_ST_Int, _GT_Int]):
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: SmallIntegerField[float | int | str | None, int | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -296,7 +299,7 @@ class SmallIntegerField(IntegerField[_ST_Int, _GT_Int]):
         **kwargs: Unpack[FieldInitKwargs[float | int | str | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -308,7 +311,7 @@ class SmallIntegerField(IntegerField[_ST_Int, _GT_Int]):
 class BigIntegerField(IntegerField[_ST_Int, _GT_Int]):
     MAX_BIGINT: ClassVar[int]
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: BigIntegerField[float | int | str | None, int | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -317,7 +320,7 @@ class BigIntegerField(IntegerField[_ST_Int, _GT_Int]):
         **kwargs: Unpack[FieldInitKwargs[float | int | str | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -329,7 +332,7 @@ class BigIntegerField(IntegerField[_ST_Int, _GT_Int]):
 class PositiveIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField[_ST_Int, _GT_Int]):
     integer_field_class: type[IntegerField[Any, Any]]
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: PositiveIntegerField[float | int | str | None, int | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -338,7 +341,7 @@ class PositiveIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField[_ST_Int, 
         **kwargs: Unpack[FieldInitKwargs[float | int | str | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -350,7 +353,7 @@ class PositiveIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField[_ST_Int, 
 class PositiveSmallIntegerField(PositiveIntegerRelDbTypeMixin, SmallIntegerField[_ST_Int, _GT_Int]):
     integer_field_class: type[SmallIntegerField[Any, Any]]
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: PositiveSmallIntegerField[float | int | str | None, int | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -359,7 +362,7 @@ class PositiveSmallIntegerField(PositiveIntegerRelDbTypeMixin, SmallIntegerField
         **kwargs: Unpack[FieldInitKwargs[float | int | str | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -371,7 +374,7 @@ class PositiveSmallIntegerField(PositiveIntegerRelDbTypeMixin, SmallIntegerField
 class PositiveBigIntegerField(PositiveIntegerRelDbTypeMixin, BigIntegerField[_ST_Int, _GT_Int]):
     integer_field_class: type[BigIntegerField[Any, Any]]
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: PositiveBigIntegerField[float | int | str | None, int | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -380,7 +383,7 @@ class PositiveBigIntegerField(PositiveIntegerRelDbTypeMixin, BigIntegerField[_ST
         **kwargs: Unpack[FieldInitKwargs[float | int | str | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -395,7 +398,7 @@ _GT_Float = TypeVar("_GT_Float", covariant=True, default=float)
 class FloatField(Field[_ST_Float, _GT_Float]):
     _pyi_lookup_exact_type: float
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: FloatField[float | int | str | None, float | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -404,7 +407,7 @@ class FloatField(Field[_ST_Float, _GT_Float]):
         **kwargs: Unpack[FieldInitKwargs[float | int | str | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -422,7 +425,7 @@ class DecimalField(Field[_ST_Decimal, _GT_Decimal]):
     max_digits: int
     decimal_places: int
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: DecimalField[str | float | decimal.Decimal | None, decimal.Decimal | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -433,7 +436,7 @@ class DecimalField(Field[_ST_Decimal, _GT_Decimal]):
         **kwargs: Unpack[FieldInitKwargs[str | float | decimal.Decimal | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -453,7 +456,7 @@ class CharField(Field[_ST_Char, _GT_Char]):
     # objects are converted to string before comparison
     _pyi_lookup_exact_type: Any
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: CharField[str | int | None, str | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -463,7 +466,7 @@ class CharField(Field[_ST_Char, _GT_Char]):
         **kwargs: Unpack[FieldInitKwargs[str | int | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -475,7 +478,7 @@ class CharField(Field[_ST_Char, _GT_Char]):
 
 class CommaSeparatedIntegerField(CharField[_ST_Char, _GT_Char]):
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: CommaSeparatedIntegerField[str | int | None, str | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -485,7 +488,7 @@ class CommaSeparatedIntegerField(CharField[_ST_Char, _GT_Char]):
         **kwargs: Unpack[FieldInitKwargs[str | int | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -497,23 +500,25 @@ class CommaSeparatedIntegerField(CharField[_ST_Char, _GT_Char]):
 
 class SlugField(CharField[_ST_Char, _GT_Char]):
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: SlugField[str | int | None, str | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
         *,
         null: Literal[True],
         allow_unicode: bool = False,
+        db_collation: str | None = None,
         **kwargs: Unpack[FieldInitKwargs[str | int | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
         *,
         null: bool = False,
         allow_unicode: bool = False,
+        db_collation: str | None = None,
         **kwargs: Unpack[FieldInitKwargs[_ST_Char]],
     ) -> None: ...
 
@@ -521,7 +526,7 @@ _ST_Email = TypeVar("_ST_Email", contravariant=True, default=str)
 
 class EmailField(CharField[_ST_Email, _GT_Char]):
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: EmailField[str | None, str | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -531,7 +536,7 @@ class EmailField(CharField[_ST_Email, _GT_Char]):
         **kwargs: Unpack[FieldInitKwargs[str | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -543,21 +548,23 @@ class EmailField(CharField[_ST_Email, _GT_Char]):
 
 class URLField(CharField[_ST_Char, _GT_Char]):
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: URLField[str | int | None, str | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
         *,
         null: Literal[True],
+        db_collation: str | None = None,
         **kwargs: Unpack[FieldInitKwargs[str | int | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
         *,
         null: bool = False,
+        db_collation: str | None = None,
         **kwargs: Unpack[FieldInitKwargs[_ST_Char]],
     ) -> None: ...
 
@@ -568,7 +575,7 @@ class TextField(Field[_ST_Text, _GT_Text]):
     # objects are converted to string before comparison
     _pyi_lookup_exact_type: Any
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: TextField[str | None, str | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -578,7 +585,7 @@ class TextField(Field[_ST_Text, _GT_Text]):
         **kwargs: Unpack[FieldInitKwargs[str | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -594,7 +601,7 @@ _GT_Bool = TypeVar("_GT_Bool", covariant=True, default=bool)
 class BooleanField(Field[_ST_Bool, _GT_Bool]):
     _pyi_lookup_exact_type: bool
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: BooleanField[bool | None, bool | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -603,7 +610,7 @@ class BooleanField(Field[_ST_Bool, _GT_Bool]):
         **kwargs: Unpack[FieldInitKwargs[bool | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -623,7 +630,7 @@ _GT_IP = TypeVar("_GT_IP", covariant=True, default=str)
 
 class IPAddressField(Field[_ST_IP, _GT_IP]):
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: IPAddressField[str | None, str | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -632,7 +639,7 @@ class IPAddressField(Field[_ST_IP, _GT_IP]):
         **kwargs: Unpack[FieldInitKwargs[str | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -648,10 +655,10 @@ class GenericIPAddressField(Field[_ST_GenIP, _GT_IP]):
     unpack_ipv4: bool
     protocol: str
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: GenericIPAddressField[str | int | Callable[..., Any] | None, str | None],
         verbose_name: _StrOrPromise | None = None,
-        name: Any | None = None,
+        name: str | None = None,
         protocol: str = "both",
         unpack_ipv4: bool = False,
         *,
@@ -659,10 +666,10 @@ class GenericIPAddressField(Field[_ST_GenIP, _GT_IP]):
         **kwargs: Unpack[FieldInitKwargs[str | int | Callable[..., Any] | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
-        name: Any | None = None,
+        name: str | None = None,
         protocol: str = "both",
         unpack_ipv4: bool = False,
         *,
@@ -681,7 +688,7 @@ class DateField(DateTimeCheckMixin, Field[_ST_Date, _GT_Date]):
     auto_now: bool
     auto_now_add: bool
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: DateField[str | date | None, date | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -692,7 +699,7 @@ class DateField(DateTimeCheckMixin, Field[_ST_Date, _GT_Date]):
         **kwargs: Unpack[FieldInitKwargs[str | date | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -712,7 +719,7 @@ class TimeField(DateTimeCheckMixin, Field[_ST_Time, _GT_Time]):
     auto_now: bool
     auto_now_add: bool
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: TimeField[str | time | real_datetime | None, time | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -723,7 +730,7 @@ class TimeField(DateTimeCheckMixin, Field[_ST_Time, _GT_Time]):
         **kwargs: Unpack[FieldInitKwargs[str | time | real_datetime | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -740,7 +747,7 @@ _GT_DateTime = TypeVar("_GT_DateTime", covariant=True, default=real_datetime)
 class DateTimeField(DateField[_ST_DateTime, _GT_DateTime]):
     _pyi_lookup_exact_type: str | real_datetime
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: DateTimeField[str | real_datetime | date | None, real_datetime | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -751,7 +758,7 @@ class DateTimeField(DateField[_ST_DateTime, _GT_DateTime]):
         **kwargs: Unpack[FieldInitKwargs[str | real_datetime | date | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -768,7 +775,7 @@ _GT_UUID = TypeVar("_GT_UUID", covariant=True, default=uuid.UUID)
 class UUIDField(Field[_ST_UUID, _GT_UUID]):
     _pyi_lookup_exact_type: uuid.UUID | str
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: UUIDField[str | uuid.UUID | None, uuid.UUID | None],
         verbose_name: _StrOrPromise | None = None,
         *,
@@ -777,7 +784,7 @@ class UUIDField(Field[_ST_UUID, _GT_UUID]):
         **kwargs: Unpack[FieldInitKwargs[str | uuid.UUID | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         *,
@@ -811,7 +818,7 @@ _GT_Binary = TypeVar("_GT_Binary", covariant=True, default=bytes | memoryview)
 
 class BinaryField(Field[_ST_Binary, _GT_Binary]):
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: BinaryField[bytes | bytearray | memoryview | None, bytes | memoryview | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -820,7 +827,7 @@ class BinaryField(Field[_ST_Binary, _GT_Binary]):
         **kwargs: Unpack[FieldInitKwargs[bytes | bytearray | memoryview | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -835,7 +842,7 @@ _GT_Duration = TypeVar("_GT_Duration", covariant=True, default=timedelta)
 
 class DurationField(Field[_ST_Duration, _GT_Duration]):
     @overload
-    def __init__(  # nullable: read and write accept None
+    def __init__(
         self: DurationField[str | timedelta | None, timedelta | None],
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
@@ -844,7 +851,7 @@ class DurationField(Field[_ST_Duration, _GT_Duration]):
         **kwargs: Unpack[FieldInitKwargs[str | timedelta | None]],
     ) -> None: ...
     @overload
-    def __init__(  # fallback: dynamic flags keep the class defaults
+    def __init__(
         self,
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,

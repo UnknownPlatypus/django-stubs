@@ -73,8 +73,7 @@ class FileField(Field[_ST, _GT_File]):
         null: bool = False,
         **kwargs: Unpack[FieldInitKwargs[_ST]],
     ) -> None: ...
-    # At runtime, FileDescriptor.__get__ ALWAYS returns a FieldFile even when the underlying database value is NULL.
-    # It wraps None in FieldFile(instance, field, name=None).
+    # FileDescriptor.__get__ wraps a NULL column in `FieldFile(name=None)`, so reads are never optional.
     # class access
     @overload
     @type_check_only

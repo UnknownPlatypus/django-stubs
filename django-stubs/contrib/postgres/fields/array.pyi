@@ -37,7 +37,7 @@ class ArrayField(
         verbose_name: _StrOrPromise | None = None,
         name: str | None = None,
         null: bool = False,
-        **kwargs: Unpack[FieldInitKwargs[list[_ST_Array]]],
+        **kwargs: Unpack[FieldInitKwargs[Sequence[_ST_Array]]],
     ) -> None: ...
     @override
     def check(self, **kwargs: Any) -> list[CheckMessage]: ...
