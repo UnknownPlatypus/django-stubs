@@ -150,16 +150,12 @@ def set_descriptor_types_for_field(ctx: FunctionContext, *, is_set_nullable: boo
     if not (is_nullable or is_set_nullable):
         return default_return_type
 
-    # Wrapper fields (ArrayField) hold element types in their own args, so column nullability is only
-    # expressible on the Field-base view. Trading the wrapper's identity (`.base_field`) for a correct
-    # `list[T] | None` read type; other checkers keep the non-optional stub type.
-    field_args = helpers.get_field_type_args(default_return_type)
-    is_wrapper = field_args is not None and (
-        field_args.set != default_return_type.args[0] or field_args.get != default_return_type.args[1]
-    )
-    target = helpers.get_field_base_instance(default_return_type) if is_wrapper else default_return_type
-    if target is None:
-        target = default_return_type
+    # A custom field whose own args are element types (`MyField(Field[list[_T], list[_T]])`) can only
+    # express column nullability on the Field-base view, at the cost of its identity. Bundled wrappers
+    # like ArrayField carry a dedicated nullability slot instead and never reach this point.
+    target = default_return_type
+    if not helpers.has_field_base_type_args(default_return_type):
+        target = helpers.get_field_base_instance(default_return_type) or default_return_type
     return target.copy_modified(
         args=[
             make_optional_type(target.args[0]),

@@ -433,6 +433,17 @@ def get_field_type_args(field_type: Instance) -> FieldTypeArgs | None:
     return FieldTypeArgs(set=get_proper_type(base.args[0]), get=get_proper_type(base.args[1]))
 
 
+def has_field_base_type_args(field_type: Instance) -> bool:
+    """Whether the instance's own first two type args are the Field set/get types.
+
+    False for wrapper fields like `ArrayField[_ST_Array, _GT_Array, _NullT]`, whose own args are element types.
+    """
+    field_args = get_field_type_args(field_type)
+    return field_args is not None and (field_args.set, field_args.get) == tuple(
+        get_proper_type(arg) for arg in field_type.args[:2]
+    )
+
+
 def get_nested_meta_node_for_current_class(info: TypeInfo) -> TypeInfo | None:
     metaclass_sym = info.names.get("Meta")
     if metaclass_sym is not None and isinstance(metaclass_sym.node, TypeInfo):
@@ -885,6 +896,8 @@ def get_field_type_from_model_type_info(
     ):
         return None
 
+    if not has_field_base_type_args(field_type):
+        return field_type
     resolved_get_type = get_field_get_type_from_model_type_info(api, context, model_info, field_name)
     resolved_set_type = get_field_set_type_from_model_type_info(api, context, model_info, field_name)
     return field_type.copy_modified(args=[resolved_set_type, resolved_get_type, *field_type.args[2:]])

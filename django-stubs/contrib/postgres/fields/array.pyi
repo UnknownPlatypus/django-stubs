@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Generic, Literal, Never, overload
 
 from _typeshed import Unused
 from django.contrib.postgres.utils import CheckPostgresInstalledMixin
@@ -19,9 +19,15 @@ from django_stubs_ext import FieldInitKwargs
 
 _ST_Array = TypeVar("_ST_Array", contravariant=True, default=Any)
 _GT_Array = TypeVar("_GT_Array", covariant=True, default=Any)
+# Column-level nullability. The element type parameters can't carry it (`list[T | None]` would mean
+# nullable elements), so `null=True` binds this slot to `None`; the `Never` default vanishes from the unions.
+_NullT = TypeVar("_NullT", None, Never, default=Never)
 
 class ArrayField(
-    CheckPostgresInstalledMixin, CheckFieldDefaultMixin, Field[Sequence[_ST_Array] | Combinable, list[_GT_Array]]
+    CheckPostgresInstalledMixin,
+    CheckFieldDefaultMixin,
+    Field[Sequence[_ST_Array] | Combinable | _NullT, list[_GT_Array] | _NullT],
+    Generic[_ST_Array, _GT_Array, _NullT],
 ):
     empty_strings_allowed: bool
     default_error_messages: ClassVar[_ErrorMessagesDict]
@@ -29,6 +35,18 @@ class ArrayField(
     size: int | None
     default_validators: list[_ValidatorCallable]
     from_db_value: Any
+    @overload
+    def __init__(
+        self: ArrayField[_ST_Array, _GT_Array, None],
+        base_field: Field[_ST_Array, _GT_Array],
+        size: int | None = None,
+        *,
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[Sequence[_ST_Array] | None]],
+    ) -> None: ...
+    @overload
     def __init__(
         self,
         base_field: Field[_ST_Array, _GT_Array],

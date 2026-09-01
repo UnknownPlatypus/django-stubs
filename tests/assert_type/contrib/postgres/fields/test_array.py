@@ -12,17 +12,16 @@ def nullable_array_field() -> None:
         lst = ArrayField(base_field=models.CharField(max_length=100), null=False)
         null_lst = ArrayField(base_field=models.CharField(max_length=100), null=True)
 
-    assert_type(MyModel().lst, list[str])  # pyrefly: ignore[assert-type]
-    # The mypy plugin folds column nullability into `list[str] | None`; plugin-less checkers keep `list[str]`.
-    assert_type(MyModel().null_lst, list[str] | None)  # pyright: ignore[reportAssertTypeFailure] # ty: ignore[type-assertion-failure] # pyrefly: ignore[assert-type]
+    assert_type(MyModel().lst, list[str])
+    assert_type(MyModel().null_lst, list[str] | None)
+    assert_type(MyModel.null_lst.field.base_field, models.Field[str | int, str])
 
     my_model = MyModel()
     random_uuid = uuid.uuid4()
 
     my_model.lst = None  # type: ignore[assignment] # pyright: ignore[reportAttributeAccessIssue] # ty: ignore[invalid-assignment] # pyrefly: ignore[bad-argument-type]
     my_model.lst = [random_uuid, random_uuid]  # type: ignore[list-item] # pyright: ignore[reportAttributeAccessIssue] # ty: ignore[invalid-assignment] # pyrefly: ignore[bad-argument-type]
-    # Nullable column: mypy accepts None; plugin-less checkers still reject it.
-    my_model.null_lst = None  # pyright: ignore[reportAttributeAccessIssue] # ty: ignore[invalid-assignment] # pyrefly: ignore[bad-argument-type]
+    my_model.null_lst = None
     my_model.null_lst = [random_uuid, random_uuid]  # type: ignore[list-item] # pyright: ignore[reportAttributeAccessIssue] # ty: ignore[invalid-assignment] # pyrefly: ignore[bad-argument-type]
 
 
@@ -34,7 +33,5 @@ def array_field_base_field_parsed_into_generic_typevar() -> None:
 
     my_model = MyModel(untyped=[], members=[1, 2], members_as_text=["A", "B"])
     assert_type(my_model.untyped, list[Any])
-    # pyrefly drops the base field's PEP 696 defaults when solving `_GT_Array`, revealing `list[Any]`.
-    # No upstream issue yet.
-    assert_type(my_model.members, list[int])  # pyrefly: ignore[assert-type]
-    assert_type(my_model.members_as_text, list[str])  # pyrefly: ignore[assert-type]
+    assert_type(my_model.members, list[int])
+    assert_type(my_model.members_as_text, list[str])
