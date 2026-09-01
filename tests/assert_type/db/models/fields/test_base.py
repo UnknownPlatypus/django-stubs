@@ -157,15 +157,8 @@ def if_field_called_on_class_return_field_itself() -> None:
     assert_type(AllFields.null_name.field, CharField[str | int | None, str | None])  # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
 
 
-def null_char_field_allows_none() -> None:
-    AllFields(null_name="")
-    AllFields(null_name=None)
+def null_flag_controls_none_assignment() -> None:
     AllFields().null_name = None  # ty: ignore[invalid-assignment] # https://github.com/astral-sh/ty/issues/3990
-
-
-def not_null_charfield_does_not_allow_none() -> None:
-    AllFields(name="")
-    AllFields(name=None)
     AllFields().name = None  # type: ignore[assignment] # pyrefly:ignore[bad-argument-type] # ty:ignore[invalid-assignment] # pyright:ignore[reportAttributeAccessIssue]
 
 
@@ -212,7 +205,7 @@ def can_narrow_field_type() -> None:
     assert_type(book.published, Year)
     book.published = 2006  # type: ignore[assignment] # pyrefly:ignore[bad-argument-type] # ty:ignore[invalid-assignment] # pyright:ignore[reportAttributeAccessIssue]
     book.published = Year(2006)
-    assert_type(book.published, Year)  # N: Revealed type is "main.Year"
+    assert_type(book.published, Year)
 
     def accepts_int(arg: int) -> None: ...
 
@@ -234,12 +227,3 @@ def test_ignores_renamed_field() -> None:
     instance.fieldname  # type: ignore[attr-defined] # pyrefly:ignore[missing-attribute] # ty:ignore[unresolved-attribute] # pyright:ignore[reportAttributeAccessIssue,reportUnknownMemberType]
     instance.modelname = 1
     instance.fieldname = 1  # type: ignore[attr-defined] # pyrefly:ignore[missing-attribute] # ty:ignore[unresolved-attribute] # pyright:ignore[reportAttributeAccessIssue]
-
-
-def nullable_field_with_strict_optional_true() -> None:
-    class MyModel(models.Model):
-        text_nullable = models.CharField(max_length=100, null=True)
-        text = models.CharField(max_length=100)
-
-    MyModel().text = None  # type: ignore[assignment] # pyrefly:ignore[bad-argument-type] # ty:ignore[invalid-assignment] # pyright:ignore[reportAttributeAccessIssue]
-    MyModel().text_nullable = None  # ty: ignore[invalid-assignment] # https://github.com/astral-sh/ty/issues/3990

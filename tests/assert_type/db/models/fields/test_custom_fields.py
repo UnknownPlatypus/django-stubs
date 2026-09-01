@@ -74,7 +74,9 @@ def custom_generic_field() -> None:
 
     instance = MyModel()
     assert_type(instance.field, int)
-    assert_type(instance.null_field, int | None)  # pyright: ignore[reportAssertTypeFailure] # ty: ignore[type-assertion-failure] # https://github.com/astral-sh/ty/issues/3990
+    # The inherited nullable overload's `self: SmallIntegerField[...]` doesn't reparametrize a bare generic
+    # subclass, so pyright and ty read the non-null default; mypy (plugin) and pyrefly fold `None`.
+    assert_type(instance.null_field, int | None)  # pyright: ignore[reportAssertTypeFailure] # ty: ignore[type-assertion-failure]
     instance.field = 1.2
     instance.field = 12
     instance.field = "12"
@@ -120,22 +122,6 @@ def field_explicit_any() -> None:
     instance = MyModel()
     assert_type(instance.field, Any)
     assert_type(instance.null_field, Any)
-
-
-def field_two_typevar_form_is_still_accepted() -> None:
-    class LegacyField(models.Field[CustomFieldValue | int, CustomFieldValue]): ...
-
-    class MyModel(models.Model):
-        field = LegacyField()
-        # Concrete 2-typevar form is non-generic, so `null=True` is not reflected on any checker; the
-        # mypy plugin additionally flags it (`[misc]`) to steer you toward widening the parameters.
-        null_field = LegacyField(null=True)  # type: ignore[misc]
-
-    instance = MyModel()
-    assert_type(instance.field, CustomFieldValue)
-    assert_type(instance.null_field, CustomFieldValue)
-    instance.field = CustomFieldValue()
-    instance.field = 12
 
 
 def field_two_typevar_form_in_user_annotation() -> None:

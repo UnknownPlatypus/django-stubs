@@ -1,6 +1,5 @@
-# Regression test for false positives like this due to incomplete `Field` annotations.
-# Type annotations must provide the type vars otherwise they get inferred as `Field[Any, Any, Literal[False]]` in some
-# contexts, which is usually wrong. Annotations accepting any field should use `Field[Any, Any, Any]`
+# Regression test for false positives on generated migrations: every `models.<Field>(...)` call
+# below must type-check against the stubs' constructor overloads with no plugin involved.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
