@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple, overload
 
 from django.contrib.gis import forms
 from django.contrib.gis.geos import (
@@ -103,65 +103,289 @@ class GeometryField(BaseSpatialField[_ST, _GT]):
         **kwargs: Any,
     ) -> forms.GeometryField | None: ...
 
-_ST_Point = TypeVar("_ST_Point", default=Point)
-_GT_Point = TypeVar("_GT_Point", default=Point)
+_ST_Point = TypeVar("_ST_Point", contravariant=True, default=Point)
+_GT_Point = TypeVar("_GT_Point", covariant=True, default=Point)
 
 class PointField(GeometryField[_ST_Point, _GT_Point]):
     _pyi_lookup_exact_type: Point
+    @overload
+    def __init__(
+        self: PointField[Point | None, Point | None],
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[Point | None]],
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST_Point]],
+    ) -> None: ...
 
     geom_class: type[Point]
     form_class: type[forms.PointField]
 
-_ST_LineString = TypeVar("_ST_LineString", default=LineString)
-_GT_LineString = TypeVar("_GT_LineString", default=LineString)
+_ST_LineString = TypeVar("_ST_LineString", contravariant=True, default=LineString)
+_GT_LineString = TypeVar("_GT_LineString", covariant=True, default=LineString)
 
 class LineStringField(GeometryField[_ST_LineString, _GT_LineString]):
     _pyi_lookup_exact_type: LineString
+    @overload
+    def __init__(
+        self: LineStringField[LineString | None, LineString | None],
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[LineString | None]],
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST_LineString]],
+    ) -> None: ...
 
     geom_class: type[LineString]
     form_class: type[forms.LineStringField]
 
-_ST_Polygon = TypeVar("_ST_Polygon", default=Polygon)
-_GT_Polygon = TypeVar("_GT_Polygon", default=Polygon)
+_ST_Polygon = TypeVar("_ST_Polygon", contravariant=True, default=Polygon)
+_GT_Polygon = TypeVar("_GT_Polygon", covariant=True, default=Polygon)
 
 class PolygonField(GeometryField[_ST_Polygon, _GT_Polygon]):
     _pyi_lookup_exact_type: Polygon
+    @overload
+    def __init__(
+        self: PolygonField[Polygon | None, Polygon | None],
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[Polygon | None]],
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST_Polygon]],
+    ) -> None: ...
 
     geom_class: type[Polygon]
     form_class: type[forms.PolygonField]
 
-_ST_MultiPoint = TypeVar("_ST_MultiPoint", default=MultiPoint)
-_GT_MultiPoint = TypeVar("_GT_MultiPoint", default=MultiPoint)
+_ST_MultiPoint = TypeVar("_ST_MultiPoint", contravariant=True, default=MultiPoint)
+_GT_MultiPoint = TypeVar("_GT_MultiPoint", covariant=True, default=MultiPoint)
 
 class MultiPointField(GeometryField[_ST_MultiPoint, _GT_MultiPoint]):
     _pyi_lookup_exact_type: MultiPoint
+    @overload
+    def __init__(
+        self: MultiPointField[MultiPoint | None, MultiPoint | None],
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[MultiPoint | None]],
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST_MultiPoint]],
+    ) -> None: ...
 
     geom_class: type[MultiPoint]
     form_class: type[forms.MultiPointField]
 
-_ST_MultiLineString = TypeVar("_ST_MultiLineString", default=MultiLineString)
-_GT_MultiLineString = TypeVar("_GT_MultiLineString", default=MultiLineString)
+_ST_MultiLineString = TypeVar("_ST_MultiLineString", contravariant=True, default=MultiLineString)
+_GT_MultiLineString = TypeVar("_GT_MultiLineString", covariant=True, default=MultiLineString)
 
 class MultiLineStringField(GeometryField[_ST_MultiLineString, _GT_MultiLineString]):
     _pyi_lookup_exact_type: MultiLineString
+    @overload
+    def __init__(
+        self: MultiLineStringField[MultiLineString | None, MultiLineString | None],
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[MultiLineString | None]],
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST_MultiLineString]],
+    ) -> None: ...
 
     geom_class: type[MultiLineString]
     form_class: type[forms.MultiLineStringField]
 
-_ST_MultiPolygon = TypeVar("_ST_MultiPolygon", default=MultiPolygon)
-_GT_MultiPolygon = TypeVar("_GT_MultiPolygon", default=MultiPolygon)
+_ST_MultiPolygon = TypeVar("_ST_MultiPolygon", contravariant=True, default=MultiPolygon)
+_GT_MultiPolygon = TypeVar("_GT_MultiPolygon", covariant=True, default=MultiPolygon)
 
 class MultiPolygonField(GeometryField[_ST_MultiPolygon, _GT_MultiPolygon]):
     _pyi_lookup_exact_type: MultiPolygon
+    @overload
+    def __init__(
+        self: MultiPolygonField[MultiPolygon | None, MultiPolygon | None],
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[MultiPolygon | None]],
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST_MultiPolygon]],
+    ) -> None: ...
 
     geom_class: type[MultiPolygon]
     form_class: type[forms.MultiPolygonField]
 
-_ST_GeometryCollection = TypeVar("_ST_GeometryCollection", default=GeometryCollection)
-_GT_GeometryCollection = TypeVar("_GT_GeometryCollection", default=GeometryCollection)
+_ST_GeometryCollection = TypeVar("_ST_GeometryCollection", contravariant=True, default=GeometryCollection)
+_GT_GeometryCollection = TypeVar("_GT_GeometryCollection", covariant=True, default=GeometryCollection)
 
 class GeometryCollectionField(GeometryField[_ST_GeometryCollection, _GT_GeometryCollection]):
     _pyi_lookup_exact_type: GeometryCollection
+    @overload
+    def __init__(
+        self: GeometryCollectionField[GeometryCollection | None, GeometryCollection | None],
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[GeometryCollection | None]],
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        dim: int = 2,
+        geography: bool = False,
+        *,
+        extent: tuple[float, float, float, float] = ...,
+        tolerance: float = 0.05,
+        max_geom_collections: int | None = ...,
+        srid: int = 4326,
+        spatial_index: bool = True,
+        name: str | None = None,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[_ST_GeometryCollection]],
+    ) -> None: ...
 
     geom_class: type[GeometryCollection]
     form_class: type[forms.GeometryCollectionField]
