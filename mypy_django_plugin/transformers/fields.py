@@ -101,17 +101,12 @@ def fill_descriptor_types_for_related_field(ctx: FunctionContext, django_context
     else:
         related_model_to_set_type = Instance(related_model_to_set_info, [])
 
-    is_nullable = helpers.get_bool_call_argument_by_name(ctx, "null", default=False)
-
-    set_type: MypyType = related_model_to_set_type
-    get_type: MypyType = related_model_type
-    if is_nullable:
-        set_type = make_optional_type(set_type)
-        get_type = make_optional_type(get_type)
-
     # replace Any with referred_to_type
     return helpers.reparametrize_field_type(
-        default_related_field_type, set_type=set_type, get_type=get_type, is_nullable=is_nullable
+        default_related_field_type,
+        set_type=related_model_to_set_type,
+        get_type=related_model_type,
+        is_nullable=helpers.get_bool_call_argument_by_name(ctx, "null", default=False),
     )
 
 
@@ -155,8 +150,9 @@ def set_descriptor_types_for_field(ctx: FunctionContext, *, is_set_nullable: boo
     if not (is_nullable or is_set_nullable):
         return default_return_type
 
-    # Wrapper fields (ArrayField) hold element types in their own args, so a nullable column reads as
-    # `list[T] | None` only on the Field-base view; other checkers keep the non-optional stub type.
+    # Wrapper fields (ArrayField) hold element types in their own args, so column nullability is only
+    # expressible on the Field-base view. Trading the wrapper's identity (`.base_field`) for a correct
+    # `list[T] | None` read type; other checkers keep the non-optional stub type.
     field_args = helpers.get_field_type_args(default_return_type)
     is_wrapper = field_args is not None and (
         field_args.set != default_return_type.args[0] or field_args.get != default_return_type.args[1]

@@ -470,7 +470,7 @@ def _count_user_supplied_type_args(ctx: ClassDefContext, parent_type: TypeInfo) 
     """Count type args the user actually wrote at ``parent_type``'s bracket position.
 
     We can't infer this from the parent ``Instance.args`` because mypy's PEP 696
-    default substitution leaves no marker distinguishing user-supplied slots from bdefaulted ones.
+    default substitution leaves no marker distinguishing user-supplied slots from defaulted ones.
     """
     base_index_expr = next(
         (

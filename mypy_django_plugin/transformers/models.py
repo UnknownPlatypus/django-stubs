@@ -768,7 +768,11 @@ class ProcessManyToManyFields(ModelClassInitializer):
     def default_pk_instance(self) -> Instance:
         default_pk_field = self.lookup_typeinfo(self.django_context.settings.DEFAULT_AUTO_FIELD)
         if default_pk_field is None:
-            raise helpers.IncompleteDefnException()
+            if not self.api.final_iteration:
+                raise helpers.IncompleteDefnException()
+            # A custom DEFAULT_AUTO_FIELD analyzed after this module stays unresolvable,
+            # approximate it with the base 'AutoField' rather than dropping dependent declarations.
+            default_pk_field = self.lookup_typeinfo_or_incomplete_defn_error(fullnames.AUTO_FIELD_FULLNAME)
         return helpers.fill_field_defaults(default_pk_field, self.api, is_set_nullable=True)
 
     @cached_property
@@ -838,21 +842,9 @@ class ProcessManyToManyFields(ModelClassInitializer):
         through_model = self.lookup_typeinfo(model_fullname)
         if through_model is not None:
             return through_model
-        # Ensure the default PK field type is available before creating the through
-        # model class. Accessing this cached_property may raise IncompleteDefnException
-        # if the DEFAULT_AUTO_FIELD hasn't been analyzed yet. By resolving it first,
-        # we avoid registering an empty through model that would be returned on the
-        # next pass without its attributes populated.
-        try:
-            default_pk = self.default_pk_instance
-        except helpers.IncompleteDefnException:
-            if not self.api.final_iteration:
-                raise
-            # A custom DEFAULT_AUTO_FIELD living in a module analyzed after this one is
-            # unreachable here for good. Approximate the pk with the base 'AutoField'
-            # rather than dropping the whole through model (managers, FKs) on the floor.
-            auto_field_info = self.lookup_typeinfo_or_incomplete_defn_error("django.db.models.fields.AutoField")
-            default_pk = helpers.fill_field_defaults(auto_field_info, self.api, is_set_nullable=True)
+        # Resolve the pk type before registering the class: a deferral here must not leave
+        # an empty through model behind for the next pass.
+        default_pk = self.default_pk_instance
         # Declare a new, empty, implicitly generated through model class named: '<Model>_<field_name>'
         through_model = self.add_new_class_for_current_module(model_name, bases=[Instance(self.model_base, [])])
         # We attempt to be a bit clever here and store the generated through model's fullname in

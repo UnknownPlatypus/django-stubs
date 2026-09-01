@@ -203,22 +203,13 @@ class DjangoContext:
                 if field.related_model == "self" and model_cls._meta.abstract:  # type: ignore[comparison-overlap, unreachable]
                     continue  # type: ignore[unreachable]
 
-                set_type: MypyType = helpers.get_field_set_type_from_model_type_info(
-                    api, context, model_info, field_name
-                )
-                if is_init and isinstance(field, ForeignKey):
-                    set_type = make_optional_type(set_type)
-                expected_types[field_name] = set_type
-                if isinstance(field, ForeignKey):
-                    # In the case of a FK, we need to register both `fk_name` and `fk_name_id`
-                    # - `field.attname` -> `fk_name_id`
-                    # - `field.name`  -> `fk_name`
-                    fk_set_type: MypyType = helpers.get_field_set_type_from_model_type_info(
-                        api, context, model_info, field.name
-                    )
-                    if is_init:
-                        fk_set_type = make_optional_type(fk_set_type)
-                    expected_types[field.name] = fk_set_type
+                # A FK registers both `field.attname` (`fk_name_id`) and `field.name` (`fk_name`)
+                names = [field_name, field.name] if isinstance(field, ForeignKey) else [field_name]
+                for name in names:
+                    set_type: MypyType = helpers.get_field_set_type_from_model_type_info(api, context, model_info, name)
+                    if is_init and isinstance(field, ForeignKey):
+                        set_type = make_optional_type(set_type)
+                    expected_types[name] = set_type
 
         return expected_types
 
