@@ -203,7 +203,7 @@ def custom_model_field_override_init_via_overloads() -> None:
             name: str | None = None,
             *,
             null: bool = False,
-            **kwargs: Unpack[FieldInitKwargs[float | int | str]],
+            **kwargs: Unpack[FieldInitKwargs[_ST_Int]],
         ) -> None: ...
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
