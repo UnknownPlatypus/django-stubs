@@ -9,16 +9,16 @@ from psycopg2.extras import DateRange, DateTimeTZRange, NumericRange
 
 class Booking(models.Model):
     time_range = pg_fields.DateTimeRangeField(null=False)
-    null_time_range = pg_fields.DateTimeRangeField(null=True)  # type: ignore[misc]
+    null_time_range = pg_fields.DateTimeRangeField(null=True)
     int_range = pg_fields.IntegerRangeField()
-    null_decimal_range = pg_fields.DecimalRangeField(null=True, default_bounds="[]")  # type: ignore[misc]
-    null_date_range = pg_fields.DateRangeField(null=True)  # type: ignore[misc]
+    null_decimal_range = pg_fields.DecimalRangeField(null=True, default_bounds="[]")
+    null_date_range = pg_fields.DateRangeField(null=True)
 
 
 def range_fields_read_null_true_as_optional() -> None:
     booking = Booking()
     assert_type(booking.time_range, DateTimeTZRange)
-    assert_type(booking.null_time_range, DateTimeTZRange | None)  # type: ignore[assert-type]  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
+    assert_type(booking.null_time_range, DateTimeTZRange | None)
     assert_type(booking.int_range, NumericRange)
-    assert_type(booking.null_decimal_range, NumericRange | None)  # type: ignore[assert-type]  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
-    assert_type(booking.null_date_range, DateRange | None)  # type: ignore[assert-type]  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
+    assert_type(booking.null_decimal_range, NumericRange | None)
+    assert_type(booking.null_date_range, DateRange | None)

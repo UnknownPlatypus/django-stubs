@@ -1,15 +1,16 @@
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, overload
 
 from _typeshed import Unused
 from django.contrib.postgres import forms
 from django.contrib.postgres.utils import CheckPostgresInstalledMixin
 from django.db import models
 from django.db.backends.base.base import BaseDatabaseWrapper
-from django.db.models.fields import _ST
+from django.db.models.fields import FieldInitKwargs
 from django.db.models.lookups import PostgresOperatorLookup
 from django.db.models.sql.compiler import SQLCompiler, _AsSqlType
-from psycopg2.extras import DateRange, DateTimeTZRange, NumericRange
-from typing_extensions import TypeVar, override
+from django.utils.functional import _StrOrPromise
+from psycopg2.extras import DateRange, DateTimeTZRange, NumericRange, Range
+from typing_extensions import TypeVar, Unpack, override
 
 class RangeBoundary(models.Expression):
     lower: str
@@ -28,9 +29,12 @@ class RangeOperators:
     NOT_GT: Literal["&<"]
     ADJACENT_TO: Literal["-|-"]
 
-_RangeT = TypeVar("_RangeT", covariant=True, default=Any)
+_RangeT = TypeVar("_RangeT", bound=Range[Any] | None)
+_NumericRangeT = TypeVar("_NumericRangeT", bound=NumericRange | None, default=NumericRange)
+_DateTimeRangeT = TypeVar("_DateTimeRangeT", bound=DateTimeTZRange | None, default=DateTimeTZRange)
+_DateRangeT = TypeVar("_DateRangeT", bound=DateRange | None, default=DateRange)
 
-class RangeField(CheckPostgresInstalledMixin, models.Field[_ST, _RangeT]):
+class RangeField(CheckPostgresInstalledMixin, models.Field[Any, _RangeT]):
     empty_strings_allowed: bool
     base_field: type[models.Field]
     range_type: type[_RangeT]
@@ -42,29 +46,123 @@ class RangeField(CheckPostgresInstalledMixin, models.Field[_ST, _RangeT]):
     @override
     def value_to_string(self, obj: models.Model) -> str | None: ...  # type: ignore[override]
 
-class ContinuousRangeField(RangeField[_ST, _RangeT]):
+class ContinuousRangeField(RangeField[_RangeT]):
     default_bounds: str
     def __init__(self, *args: Any, default_bounds: str = "[)", **kwargs: Any) -> None: ...
 
-class IntegerRangeField(RangeField[_ST, NumericRange]):
+class IntegerRangeField(RangeField[_NumericRangeT]):
     base_field: type[models.IntegerField]
     form_field: type[forms.IntegerRangeField]
+    @overload
+    def __init__(  # nullable: read and write accept None
+        self: IntegerRangeField[NumericRange | None],
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        *,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[Any]],
+    ) -> None: ...
+    @overload
+    def __init__(  # fallback: dynamic flags keep the class defaults
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        *,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[Any]],
+    ) -> None: ...
 
-class BigIntegerRangeField(RangeField[_ST, NumericRange]):
+class BigIntegerRangeField(RangeField[_NumericRangeT]):
     base_field: type[models.BigIntegerField]
     form_field: type[forms.IntegerRangeField]
+    @overload
+    def __init__(  # nullable: read and write accept None
+        self: BigIntegerRangeField[NumericRange | None],
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        *,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[Any]],
+    ) -> None: ...
+    @overload
+    def __init__(  # fallback: dynamic flags keep the class defaults
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        *,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[Any]],
+    ) -> None: ...
 
-class DecimalRangeField(ContinuousRangeField[_ST, NumericRange]):
+class DecimalRangeField(ContinuousRangeField[_NumericRangeT]):
     base_field: type[models.DecimalField]
     form_field: type[forms.DecimalRangeField]
+    @overload
+    def __init__(  # nullable: read and write accept None
+        self: DecimalRangeField[NumericRange | None],
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        *,
+        null: Literal[True],
+        default_bounds: str = "[)",
+        **kwargs: Unpack[FieldInitKwargs[Any]],
+    ) -> None: ...
+    @overload
+    def __init__(  # fallback: dynamic flags keep the class defaults
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        *,
+        null: bool = False,
+        default_bounds: str = "[)",
+        **kwargs: Unpack[FieldInitKwargs[Any]],
+    ) -> None: ...
 
-class DateTimeRangeField(ContinuousRangeField[_ST, DateTimeTZRange]):
+class DateTimeRangeField(ContinuousRangeField[_DateTimeRangeT]):
     base_field: type[models.DateTimeField]
     form_field: type[forms.DateTimeRangeField]
+    @overload
+    def __init__(  # nullable: read and write accept None
+        self: DateTimeRangeField[DateTimeTZRange | None],
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        *,
+        null: Literal[True],
+        default_bounds: str = "[)",
+        **kwargs: Unpack[FieldInitKwargs[Any]],
+    ) -> None: ...
+    @overload
+    def __init__(  # fallback: dynamic flags keep the class defaults
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        *,
+        null: bool = False,
+        default_bounds: str = "[)",
+        **kwargs: Unpack[FieldInitKwargs[Any]],
+    ) -> None: ...
 
-class DateRangeField(RangeField[_ST, DateRange]):
+class DateRangeField(RangeField[_DateRangeT]):
     base_field: type[models.DateField]
     form_field: type[forms.DateRangeField]
+    @overload
+    def __init__(  # nullable: read and write accept None
+        self: DateRangeField[DateRange | None],
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        *,
+        null: Literal[True],
+        **kwargs: Unpack[FieldInitKwargs[Any]],
+    ) -> None: ...
+    @overload
+    def __init__(  # fallback: dynamic flags keep the class defaults
+        self,
+        verbose_name: _StrOrPromise | None = None,
+        name: str | None = None,
+        *,
+        null: bool = False,
+        **kwargs: Unpack[FieldInitKwargs[Any]],
+    ) -> None: ...
 
 class DateTimeRangeContains(PostgresOperatorLookup): ...
 
