@@ -29,12 +29,12 @@ class Geo(models.Model):
 def nullable_geometry_fields_read_optional() -> None:
     geo = Geo()
     assert_type(geo.point, Point)
-    assert_type(geo.null_point, Point | None)  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
-    assert_type(geo.line_string, LineString | None)  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
-    assert_type(geo.polygon, Polygon | None)  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
-    assert_type(geo.multi_point, MultiPoint | None)  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
-    assert_type(geo.multi_line_string, MultiLineString | None)  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
-    assert_type(geo.multi_polygon, MultiPolygon | None)  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
-    assert_type(geo.geometry_collection, GeometryCollection | None)  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
-    geo.null_point = None  # pyright: ignore[reportAttributeAccessIssue]  # pyrefly: ignore[bad-argument-type]  # ty: ignore[invalid-assignment]
+    assert_type(geo.null_point, Point | None)
+    assert_type(geo.line_string, LineString | None)
+    assert_type(geo.polygon, Polygon | None)
+    assert_type(geo.multi_point, MultiPoint | None)
+    assert_type(geo.multi_line_string, MultiLineString | None)
+    assert_type(geo.multi_polygon, MultiPolygon | None)
+    assert_type(geo.geometry_collection, GeometryCollection | None)
+    geo.null_point = None
     geo.point = None  # type: ignore[assignment]  # pyright: ignore[reportAttributeAccessIssue]  # pyrefly: ignore[bad-argument-type]  # ty: ignore[invalid-assignment]
