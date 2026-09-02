@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 from django.db.models.fields import DateField, DateTimeField, Field
 from django.db.models.fields.reverse_related import ForeignObjectRel, ManyToManyRel, OneToOneRel
+from mypy.errorcodes import ATTR_DEFINED
+from mypy.messages import format_type
 from mypy.nodes import (
     ARG_STAR2,
     MDEF,
@@ -25,7 +27,18 @@ from mypy.plugins import common
 from mypy.semanal import SemanticAnalyzer
 from mypy.semanal_shared import has_placeholder
 from mypy.typeanal import TypeAnalyser
-from mypy.types import AnyType, Instance, ProperType, TypedDictType, TypeOfAny, TypeType, TypeVarType, get_proper_type
+from mypy.types import (
+    AnyType,
+    FunctionLike,
+    Instance,
+    ProperType,
+    TypedDictType,
+    TypeOfAny,
+    TypeType,
+    TypeVarType,
+    UnionType,
+    get_proper_type,
+)
 from mypy.types import Type as MypyType
 from typing_extensions import override
 
@@ -372,7 +385,7 @@ class AddManagers(ModelClassInitializer):
         assert manager_info is not None
         # Reparameterize dynamically created manager with model type
         manager_type = helpers.fill_manager(manager_info, Instance(self.model_classdef.info, []))
-        self.add_new_var_to_model_class(manager_name, manager_type, is_classvar=True)
+        self.add_new_var_to_model_class(manager_name, manager_type)
 
     @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
@@ -380,11 +393,16 @@ class AddManagers(ModelClassInitializer):
 
         incomplete_manager_defs = set()
         for manager_name, manager in model_cls._meta.managers_map.items():
+            if manager.auto_created:
+                # Django's implicit `objects`, already resolved by the `ModelBase.__getattr__` fallback.
+                # Declaring it here would shadow that fallback with a symbol subclasses have to override.
+                continue
+
             manager_node = self.model_classdef.info.get(manager_name)
             manager_fullname = helpers.get_class_fullname(manager.__class__)
             manager_info = self.lookup_manager(manager_fullname, manager)
 
-            if manager_node and manager_node.type is not None:
+            if manager_node and manager_node.type is not None and not manager_node.plugin_generated:
                 # Manager is already typed -> do nothing unless it's a dynamically generated manager
                 self.reparametrize_dynamically_created_manager(manager_name, manager_info)
                 continue
@@ -397,9 +415,8 @@ class AddManagers(ModelClassInitializer):
                 incomplete_manager_defs.add(manager_name)
                 continue
 
-            assert self.model_classdef.info.self_type is not None
-            manager_type = helpers.fill_manager(manager_info, self.model_classdef.info.self_type)
-            self.add_new_var_to_model_class(manager_name, manager_type, is_classvar=True)
+            manager_type = helpers.fill_manager(manager_info, Instance(self.model_classdef.info, []))
+            self.add_new_var_to_model_class(manager_name, manager_type)
 
         if incomplete_manager_defs:
             if not self.api.final_iteration:
@@ -414,18 +431,19 @@ class AddManagers(ModelClassInitializer):
                 # setting _some_ type
                 fallback_manager_info = self.get_or_create_manager_with_any_fallback()
                 if fallback_manager_info is not None:
-                    assert self.model_classdef.info.self_type is not None
-                    manager_type = helpers.fill_manager(fallback_manager_info, self.model_classdef.info.self_type)
-                    self.add_new_var_to_model_class(manager_name, manager_type, is_classvar=True)
+                    manager_type = helpers.fill_manager(fallback_manager_info, Instance(self.model_classdef.info, []))
+                    self.add_new_var_to_model_class(manager_name, manager_type)
 
-                # Find expression for e.g. `objects = SomeManager()`
+                # Find expression for e.g. `objects = SomeManager()`. An inherited manager is
+                # reported on the model that declares it, so don't repeat it for every subclass.
                 manager_expr = self.get_manager_expression(manager_name)
-                manager_fullname = f"{self.model_classdef.fullname}.{manager_name}"
-                self.api.fail(
-                    f'Could not resolve manager type for "{manager_fullname}"',
-                    manager_expr or self.ctx.cls,
-                    code=MANAGER_MISSING,
-                )
+                if manager_expr is not None:
+                    manager_fullname = f"{self.model_classdef.fullname}.{manager_name}"
+                    self.api.fail(
+                        f'Could not resolve manager type for "{manager_fullname}"',
+                        manager_expr,
+                        code=MANAGER_MISSING,
+                    )
 
     def get_manager_expression(self, name: str) -> AssignmentStmt | None:
         # TODO: What happens if the manager is defined multiple times?
@@ -1001,7 +1019,8 @@ class MetaclassAdjustments(ModelClassInitializer):
         For the sake of type checkers other than mypy, some attributes that are
         dynamically added by Django's model metaclass has been annotated on
         `django.db.models.base.Model`. We remove those attributes and will handle them
-        through the plugin.
+        through the plugin. `objects` is left alone: `ModelBase.__getattr__` already
+        restricts it to the class, and `resolve_model_metaclass_fallback` to concrete models.
 
         Configurable with `strict_model_abstract_attrs = false` to skip removing any objects from models.
 
@@ -1023,28 +1042,7 @@ class MetaclassAdjustments(ModelClassInitializer):
 
         Turn this setting off at your own risk.
         """
-        # Mypy does not properly support narrowing in `__getattr__` based on `Literal["objects"]`
-        # so the current `ModelBase.__getattr__` swallows every unknown attributes errors.
-        # `objects` is already inserted by the plugin, so the fallback is not necessary for mypy. We can drop it
-        # TODO: remove once https://github.com/python/mypy/issues/8203 is resolved
-        metaclass = ctx.cls.info.metaclass_type
-        if metaclass is not None and "__getattr__" in metaclass.type.names:
-            del metaclass.type.names["__getattr__"]
-
-        if ctx.cls.fullname != fullnames.MODEL_CLASS_FULLNAME:
-            return
-
-        if not plugin_config.strict_model_abstract_attrs:
-            # `__getattr__` was the only source of `Model.objects`, redeclare it explicitly for this setting.
-            manager = helpers.lookup_fully_qualified_typeinfo(
-                helpers.get_semanal_api(ctx), fullnames.MANAGER_CLASS_FULLNAME
-            )
-            if manager is not None:
-                helpers.add_new_sym_for_info(
-                    ctx.cls.info,
-                    name="objects",
-                    sym_type=Instance(manager, [Instance(ctx.cls.info, [])]),
-                )
+        if ctx.cls.fullname != fullnames.MODEL_CLASS_FULLNAME or not plugin_config.strict_model_abstract_attrs:
             return
 
         for attr_name in ["DoesNotExist", "NotUpdated", "MultipleObjectsReturned"]:
@@ -1128,6 +1126,54 @@ def process_model_class(ctx: ClassDefContext, django_context: DjangoContext) -> 
         except helpers.IncompleteDefnException:
             if not ctx.api.final_iteration:
                 ctx.api.defer()
+
+
+def resolve_model_metaclass_fallback(
+    ctx: AttributeContext, *, attr_name: str, plugin_config: DjangoPluginConfig
+) -> MypyType:
+    """
+    `ModelBase.__getattr__` only declares `objects`, but mypy ignores its `Literal["objects"]`
+    restriction and lets it answer for every unknown attribute, so enforce the name here.
+
+    TODO: drop the name check once https://github.com/python/mypy/issues/8203 is resolved
+    """
+    if attr_name == "objects" and (not plugin_config.strict_model_abstract_attrs or has_manager_at_runtime(ctx.type)):
+        return ctx.default_attr_type
+
+    ctx.api.fail(
+        f'{format_type(ctx.type, ctx.api.options)} has no attribute "{attr_name}"', ctx.context, code=ATTR_DEFINED
+    )
+    return AnyType(TypeOfAny.from_error)
+
+
+def has_manager_at_runtime(typ: MypyType) -> bool:
+    """
+    Whether the model class `objects` is read from gets one contributed by the metaclass.
+
+    Only concrete models do, so an abstract model has a manager only when it inherits one from a
+    concrete parent. A type we can't resolve to a model is left alone.
+    """
+    proper_type = get_proper_type(typ)
+    if isinstance(proper_type, UnionType):
+        return all(has_manager_at_runtime(item) for item in proper_type.items)
+    if isinstance(proper_type, TypeType):
+        proper_type = proper_type.item
+    if isinstance(proper_type, TypeVarType):
+        proper_type = get_proper_type(proper_type.upper_bound)
+
+    if isinstance(proper_type, FunctionLike) and proper_type.is_type_obj():
+        model = proper_type.type_object()
+    elif isinstance(proper_type, Instance):
+        model = proper_type.type
+    else:
+        return True
+
+    return any(
+        base.fullname != fullnames.MODEL_CLASS_FULLNAME
+        and helpers.is_model_type(base)
+        and not helpers.is_abstract_model(base)
+        for base in model.mro
+    )
 
 
 def set_auth_user_model_boolean_fields(ctx: AttributeContext, django_context: DjangoContext) -> MypyType:

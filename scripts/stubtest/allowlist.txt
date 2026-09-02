@@ -34,6 +34,12 @@ django.core.files.storage.default_storage
 django.db.connection
 django.tasks.default_task_backend
 
+# Stub-only fallback that hands out `objects` for every model class. Django contributes that
+# manager from `ModelBase.__new__` instead, so the models below don't declare one either.
+django.db.models.base.ModelBase.__getattr__
+django.contrib.flatpages.models.FlatPage.objects
+django.contrib.redirects.models.Redirect.objects
+
 # path/re_path are actually functools.partial objects at runtime, but stubs type them as functions
 django.urls.conf.path
 django.urls.conf.re_path

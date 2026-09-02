@@ -52,7 +52,9 @@ class ModelBase(type):
     # Because this acts as a fallback (matching django adding this manager if not defined), it resolves conflict
     # we previously had with pyright and pyrefly when overriding `objects`.
     # See https://github.com/typeddjango/django-stubs/pull/3559#issue-5057479304
-    def __getattr__(cls: type[_Self], name: Literal["objects"]) -> Manager[_Self]: ...
+    # mypy rejects both the `cls` self-type and the narrowed `name`, see
+    # https://github.com/python/mypy/issues/8203. Our plugin enforces the `Literal` instead.
+    def __getattr__(cls: type[_Self], name: Literal["objects"]) -> Manager[_Self]: ...  # type: ignore[misc]
 
 class Model(AltersData, metaclass=ModelBase):
     # These attributes should only exist on concrete subclasses, not abstract models, and are
