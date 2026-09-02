@@ -1,6 +1,6 @@
 import datetime as dt
 from collections.abc import Iterable
-from typing import Any, ClassVar, Literal, Never, Self, TypeAlias
+from typing import Any, ClassVar, Literal, Never, TypeAlias
 
 from django.contrib.auth.base_user import AbstractBaseUser as AbstractBaseUser
 from django.contrib.auth.base_user import BaseUserManager as BaseUserManager
@@ -8,11 +8,11 @@ from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.db.models import QuerySet
-from django.db.models.base import Model
+from django.db.models.base import Model, ModelBase
 from django.db.models.expressions import Combinable
 from django.db.models.manager import EmptyManager
 from django.utils.functional import _StrOrPromise
-from typing_extensions import TypeVar
+from typing_extensions import TypeVar, override
 
 # This is our "placeholder" type the mypy plugin refines to configured 'AUTH_USER_MODEL'
 # wherever it is used as a type. The most recognised example of this is (probably)
@@ -34,9 +34,13 @@ def update_last_login(sender: _UserModel, user: _User, **kwargs: Any) -> None: .
 class PermissionManager(models.Manager[Permission]):
     def get_by_natural_key(self, codename: str, app_label: str, model: str) -> Permission: ...
 
-class Permission(models.Model):
+# Declaring `objects` on the metaclass keeps it a fallback, so a subclass can replace it.
+class _PermissionModelBase(ModelBase):
+    @override
+    def __getattr__(cls: type[Permission], name: Literal["objects"]) -> PermissionManager: ...  # type: ignore[misc, override]
+
+class Permission(models.Model, metaclass=_PermissionModelBase):
     content_type_id: int
-    objects: ClassVar[PermissionManager]
 
     name: models.CharField[str | int | Combinable, str]
     content_type: models.ForeignKey[ContentType | Combinable, ContentType]
@@ -49,9 +53,12 @@ class GroupManager(models.Manager[Group]):
     def get_by_natural_key(self, name: str) -> Group: ...
     async def aget_by_natural_key(self, name: str) -> Group: ...
 
-class Group(models.Model):
-    objects: ClassVar[GroupManager]
+# Declaring `objects` on the metaclass keeps it a fallback, so a subclass can replace it.
+class _GroupModelBase(ModelBase):
+    @override
+    def __getattr__(cls: type[Group], name: Literal["objects"]) -> GroupManager: ...  # type: ignore[misc, override]
 
+class Group(models.Model, metaclass=_GroupModelBase):
     name: models.CharField[str | int | Combinable, str]
     permissions = models.ManyToManyField(Permission)
     def natural_key(self) -> tuple[str]: ...
@@ -99,7 +106,12 @@ class PermissionsMixin(models.Model):
     def has_module_perms(self, app_label: str) -> bool: ...
     async def ahas_module_perms(self, app_label: str) -> bool: ...
 
-class AbstractUser(AbstractBaseUser, PermissionsMixin):
+# Declaring `objects` on the metaclass keeps it a fallback, so a subclass can replace it.
+class _AbstractUserModelBase(ModelBase):
+    @override
+    def __getattr__(cls: type[_UserType], name: Literal["objects"]) -> UserManager[_UserType]: ...  # type: ignore[misc]
+
+class AbstractUser(AbstractBaseUser, PermissionsMixin, metaclass=_AbstractUserModelBase):
     username_validator: UnicodeUsernameValidator
 
     class Meta:
@@ -114,8 +126,6 @@ class AbstractUser(AbstractBaseUser, PermissionsMixin):
     is_staff: models.BooleanField[bool | Combinable, bool]
     is_active: models.BooleanField[bool | Combinable, bool]
     date_joined: models.DateTimeField[str | dt.datetime | dt.date | Combinable, dt.datetime]
-
-    objects: ClassVar[UserManager[Self]]
 
     EMAIL_FIELD: str
     USERNAME_FIELD: str

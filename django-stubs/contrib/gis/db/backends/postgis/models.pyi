@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Self
+from typing import Any
 
 from django.contrib.gis.db.backends.base.models import SpatialRefSysMixin
 from django.db import models
@@ -11,8 +11,6 @@ class PostGISGeometryColumns(models.Model):
     coord_dimension: Any
     srid: Any
     type: Any
-    objects: ClassVar[models.Manager[Self]]
-
     @classmethod
     def table_name_col(cls) -> Any: ...
     @classmethod
@@ -24,7 +22,5 @@ class PostGISSpatialRefSys(models.Model, SpatialRefSysMixin):
     auth_srid: Any
     srtext: Any
     proj4text: Any
-    objects: ClassVar[models.Manager[Self]]
-
     @property
     def wkt(self) -> Any: ...

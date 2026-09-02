@@ -393,16 +393,17 @@ class AddManagers(ModelClassInitializer):
 
         incomplete_manager_defs = set()
         for manager_name, manager in model_cls._meta.managers_map.items():
-            if manager.auto_created:
-                # Django's implicit `objects`, already resolved by the `ModelBase.__getattr__` fallback.
-                # Declaring it here would shadow that fallback with a symbol subclasses have to override.
+            manager_node = self.model_classdef.info.get(manager_name)
+            if manager_node is None:
+                # Nothing in the MRO declares this manager, so a metaclass `__getattr__` fallback
+                # hands it out. Declaring it here would shadow that fallback with a symbol every
+                # subclass then has to override.
                 continue
 
-            manager_node = self.model_classdef.info.get(manager_name)
             manager_fullname = helpers.get_class_fullname(manager.__class__)
             manager_info = self.lookup_manager(manager_fullname, manager)
 
-            if manager_node and manager_node.type is not None and not manager_node.plugin_generated:
+            if manager_node.type is not None and not manager_node.plugin_generated:
                 # Manager is already typed -> do nothing unless it's a dynamically generated manager
                 self.reparametrize_dynamically_created_manager(manager_name, manager_info)
                 continue
@@ -1129,15 +1130,21 @@ def process_model_class(ctx: ClassDefContext, django_context: DjangoContext) -> 
 
 
 def resolve_model_metaclass_fallback(
-    ctx: AttributeContext, *, attr_name: str, plugin_config: DjangoPluginConfig
+    ctx: AttributeContext, *, attr_name: str, declared_manager: bool, plugin_config: DjangoPluginConfig
 ) -> MypyType:
     """
-    `ModelBase.__getattr__` only declares `objects`, but mypy ignores its `Literal["objects"]`
-    restriction and lets it answer for every unknown attribute, so enforce the name here.
+    A model metaclass declares `objects` through a `__getattr__` fallback, but mypy ignores its
+    `Literal["objects"]` restriction and lets it answer for every unknown attribute.
+
+    `ModelBase`'s fallback stands for the manager Django contributes to models that declare none,
+    which only concrete models get. A metaclass subclass declares a manager of its own instead,
+    which abstract models keep.
 
     TODO: drop the name check once https://github.com/python/mypy/issues/8203 is resolved
     """
-    if attr_name == "objects" and (not plugin_config.strict_model_abstract_attrs or has_manager_at_runtime(ctx.type)):
+    if attr_name == "objects" and (
+        declared_manager or not plugin_config.strict_model_abstract_attrs or is_concrete_model_access(ctx.type)
+    ):
         return ctx.default_attr_type
 
     ctx.api.fail(
@@ -1146,16 +1153,14 @@ def resolve_model_metaclass_fallback(
     return AnyType(TypeOfAny.from_error)
 
 
-def has_manager_at_runtime(typ: MypyType) -> bool:
+def is_concrete_model_access(typ: MypyType) -> bool:
     """
-    Whether the model class `objects` is read from gets one contributed by the metaclass.
-
-    Only concrete models do, so an abstract model has a manager only when it inherits one from a
-    concrete parent. A type we can't resolve to a model is left alone.
+    Whether the model class an attribute is read from is concrete, an abstract model inheriting
+    from a concrete parent included. A type we can't resolve to a model is left alone.
     """
     proper_type = get_proper_type(typ)
     if isinstance(proper_type, UnionType):
-        return all(has_manager_at_runtime(item) for item in proper_type.items)
+        return all(is_concrete_model_access(item) for item in proper_type.items)
     if isinstance(proper_type, TypeType):
         proper_type = proper_type.item
     if isinstance(proper_type, TypeVarType):

@@ -34,11 +34,27 @@ django.core.files.storage.default_storage
 django.db.connection
 django.tasks.default_task_backend
 
-# Stub-only fallback that hands out `objects` for every model class. Django contributes that
-# manager from `ModelBase.__new__` instead, so the models below don't declare one either.
+# `objects` is handed out by a stub-only metaclass fallback rather than declared on the model,
+# so that a subclass can replace it. `ModelBase.__getattr__` covers the manager Django adds to
+# models that declare none, a `ModelBase` subclass the manager a model declares itself.
 django.db.models.base.ModelBase.__getattr__
+django.contrib.admin.models.LogEntry.objects
+django.contrib.auth.models.AbstractUser.objects
+django.contrib.auth.models.Group.objects
+django.contrib.auth.models.Permission.objects
+django.contrib.contenttypes.models.ContentType.objects
 django.contrib.flatpages.models.FlatPage.objects
+django.contrib.gis.db.backends.oracle.models.OracleGeometryColumns.objects
+django.contrib.gis.db.backends.oracle.models.OracleSpatialRefSys.objects
+django.contrib.gis.db.backends.postgis.models.PostGISGeometryColumns.objects
+django.contrib.gis.db.backends.postgis.models.PostGISSpatialRefSys.objects
+django.contrib.gis.db.backends.spatialite.models.SpatialiteGeometryColumns.objects
+django.contrib.gis.db.backends.spatialite.models.SpatialiteSpatialRefSys.objects
 django.contrib.redirects.models.Redirect.objects
+django.contrib.sessions.base_session.AbstractBaseSession.objects
+django.contrib.sessions.models.Session.objects
+django.contrib.sites.models.Site.objects
+django.db.migrations.recorder.MigrationRecorder.Migration.objects
 
 # path/re_path are actually functools.partial objects at runtime, but stubs type them as functions
 django.urls.conf.path

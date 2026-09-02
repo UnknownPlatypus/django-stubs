@@ -349,9 +349,14 @@ class NewSemanalDjangoPlugin(Plugin):
         ) and "from_queryset_manager" in helpers.get_django_metadata(info):
             return resolve_manager_method
 
-        # Lookup of a model attribute that only `ModelBase.__getattr__` resolves
+        # Lookup of a model attribute that only a metaclass `__getattr__` fallback resolves
         if info.has_base(fullnames.MODEL_METACLASS_FULLNAME) and info.get(attr_name) is None:
-            return partial(resolve_model_metaclass_fallback, attr_name=attr_name, plugin_config=self.plugin_config)
+            return partial(
+                resolve_model_metaclass_fallback,
+                attr_name=attr_name,
+                declared_manager=info.fullname != fullnames.MODEL_METACLASS_FULLNAME,
+                plugin_config=self.plugin_config,
+            )
 
         if info.has_base(fullnames.STR_PROMISE_FULLNAME):
             return resolve_str_promise_attribute

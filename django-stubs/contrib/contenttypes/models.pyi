@@ -1,9 +1,10 @@
-from typing import Any, ClassVar
+from typing import Any, Literal
 
 from django.db import models
-from django.db.models.base import Model
+from django.db.models.base import Model, ModelBase
 from django.db.models.expressions import Combinable
 from django.db.models.query import QuerySet
+from typing_extensions import override
 
 class ContentTypeManager(models.Manager[ContentType]):
     def __init__(self, *args: Any, **kwargs: Any) -> None: ...
@@ -13,11 +14,15 @@ class ContentTypeManager(models.Manager[ContentType]):
     def get_for_id(self, id: int) -> ContentType: ...
     def clear_cache(self) -> None: ...
 
-class ContentType(models.Model):
+# Declaring `objects` on the metaclass keeps it a fallback, so a subclass can replace it.
+class _ContentTypeModelBase(ModelBase):
+    @override
+    def __getattr__(cls: type[ContentType], name: Literal["objects"]) -> ContentTypeManager: ...  # type: ignore[misc, override]
+
+class ContentType(models.Model, metaclass=_ContentTypeModelBase):
     id: int
     app_label: models.CharField[str | int | Combinable, str]
     model: models.CharField[str | int | Combinable, str]
-    objects: ClassVar[ContentTypeManager]
     @property
     def name(self) -> str: ...
     @property

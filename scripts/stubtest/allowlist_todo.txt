@@ -28,7 +28,6 @@ django.contrib.auth.models.AbstractUser.is_staff
 django.contrib.auth.models.AbstractUser.is_superuser
 django.contrib.auth.models.AbstractUser.last_login
 django.contrib.auth.models.AbstractUser.last_name
-django.contrib.auth.models.AbstractUser.objects
 django.contrib.auth.models.AbstractUser.password
 django.contrib.auth.models.AbstractUser.user_permissions
 django.contrib.auth.models.AbstractUser.username
@@ -77,7 +76,6 @@ django.contrib.redirects.models.Redirect.site_id
 django.contrib.sessions.base_session.AbstractBaseSession.expire_date
 django.contrib.sessions.base_session.AbstractBaseSession.get_next_by_expire_date
 django.contrib.sessions.base_session.AbstractBaseSession.get_previous_by_expire_date
-django.contrib.sessions.base_session.AbstractBaseSession.objects
 django.contrib.sessions.base_session.AbstractBaseSession.session_data
 django.contrib.sessions.base_session.AbstractBaseSession.session_key
 django.contrib.sessions.models.Session.expire_date

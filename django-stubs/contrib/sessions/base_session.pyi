@@ -1,10 +1,11 @@
 import datetime as dt
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar, Literal
 
 from django.contrib.sessions.backends.base import SessionBase
 from django.db import models
+from django.db.models.base import ModelBase
 from django.db.models.expressions import Combinable
-from typing_extensions import TypeVar
+from typing_extensions import TypeVar, override
 
 _T = TypeVar("_T", bound=AbstractBaseSession)
 
@@ -12,11 +13,15 @@ class BaseSessionManager(models.Manager[_T]):
     def encode(self, session_dict: dict[str, Any]) -> str: ...
     def save(self, session_key: str, session_dict: dict[str, Any], expire_date: dt.datetime) -> _T: ...
 
-class AbstractBaseSession(models.Model):
+# Declaring `objects` on the metaclass keeps it a fallback, so a subclass can replace it.
+class _AbstractBaseSessionModelBase(ModelBase):
+    @override
+    def __getattr__(cls: type[_T], name: Literal["objects"]) -> BaseSessionManager[_T]: ...  # type: ignore[misc]
+
+class AbstractBaseSession(models.Model, metaclass=_AbstractBaseSessionModelBase):
     session_key: models.CharField[str | int | Combinable, str]
     session_data: models.TextField[str | Combinable, str]
     expire_date: models.DateTimeField[str | dt.datetime | dt.date | Combinable, dt.datetime]
-    objects: ClassVar[BaseSessionManager[Self]]
 
     class Meta:
         abstract: ClassVar[bool]

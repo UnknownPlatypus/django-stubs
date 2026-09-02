@@ -1,13 +1,14 @@
 import datetime as dt
 from collections.abc import Iterable
-from typing import Any, ClassVar, Literal, overload
+from typing import Any, Literal, overload
 from uuid import UUID
 
 from django.contrib.auth.models import _User
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
-from django.db.models.base import Model
+from django.db.models.base import Model, ModelBase
 from django.db.models.expressions import Combinable
+from typing_extensions import override
 
 ADDITION: int
 CHANGE: int
@@ -36,7 +37,12 @@ class LogEntryManager(models.Manager[LogEntry]):
         single_object: Literal[False] = ...,
     ) -> list[LogEntry]: ...
 
-class LogEntry(models.Model):
+# Declaring `objects` on the metaclass keeps it a fallback, so a subclass can replace it.
+class _LogEntryModelBase(ModelBase):
+    @override
+    def __getattr__(cls: type[LogEntry], name: Literal["objects"]) -> LogEntryManager: ...  # type: ignore[misc, override]
+
+class LogEntry(models.Model, metaclass=_LogEntryModelBase):
     action_time: models.DateTimeField[str | dt.datetime | dt.date | Combinable, dt.datetime]
     user: models.ForeignKey[_User | Combinable, _User]
     content_type: models.ForeignKey[ContentType | Combinable | None, ContentType | None]
@@ -44,7 +50,6 @@ class LogEntry(models.Model):
     object_repr: models.CharField[str | int | Combinable, str]
     action_flag: models.PositiveSmallIntegerField[float | int | str | Combinable, int]
     change_message: models.TextField[str | Combinable, str]
-    objects: ClassVar[LogEntryManager]
     def is_addition(self) -> bool: ...
     def is_change(self) -> bool: ...
     def is_deletion(self) -> bool: ...
