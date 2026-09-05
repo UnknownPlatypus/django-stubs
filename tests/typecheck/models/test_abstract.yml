@@ -218,3 +218,38 @@
             def create_animal_generic(klass: type[T], name: str) -> T:
                 reveal_type(klass)  # N: Revealed type is "type[T]"
                 return klass._default_manager.create(name=name)
+
+
+- case: test_objects_access_through_typevar_bound
+  main: |
+      from typing_extensions import TypeVar, reveal_type
+      from django.db import models
+      from myapp.models import Abstract, Concrete
+
+      A = TypeVar("A", bound=Abstract)
+      C = TypeVar("C", bound=Concrete)
+      M = TypeVar("M", bound=models.Model)
+
+      def abstract_bound(klass: type[A]) -> None:
+          klass.objects  # E: "type[A]" has no attribute "objects"  [attr-defined]
+          reveal_type(klass._default_manager)  # N: Revealed type is "django.db.models.manager.Manager[A]"
+
+      def concrete_bound(klass: type[C]) -> None:
+          reveal_type(klass.objects)  # N: Revealed type is "django.db.models.manager.Manager[C]"
+
+      def model_bound(klass: type[M]) -> None:
+          klass.objects  # E: "type[M]" has no attribute "objects"  [attr-defined]
+  installed_apps:
+    - myapp
+  files:
+    -   path: myapp/__init__.py
+    -   path: myapp/models.py
+        content: |
+            from django.db import models
+
+            class Abstract(models.Model):
+                class Meta:
+                    abstract = True
+
+            class Concrete(Abstract):
+                ...

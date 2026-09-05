@@ -380,6 +380,14 @@ class AddManagers(ModelClassInitializer):
 
         incomplete_manager_defs = set()
         for manager_name, manager in model_cls._meta.managers_map.items():
+            if manager.auto_created and not self.model_classdef.info.meta_fallback_to_any:
+                # Django's implicit `objects`, already resolved by the `ModelBase.__getattr__` fallback.
+                # Declaring it here would shadow that fallback with a symbol subclasses have to override.
+                # Except under a dynamic metaclass, where mypy answers `Any` instead of consulting `__getattr__`.
+                continue
+
+            if manager_name in self.model_classdef.info.names:
+                self.mark_manager_assignment_as_classvar(manager_name)
             manager_node = self.model_classdef.info.get(manager_name)
             manager_fullname = helpers.get_class_fullname(manager.__class__)
             manager_info = self.lookup_manager(manager_fullname, manager)
@@ -426,6 +434,25 @@ class AddManagers(ModelClassInitializer):
                     manager_expr or self.ctx.cls,
                     code=MANAGER_MISSING,
                 )
+
+    def mark_manager_assignment_as_classvar(self, name: str) -> None:
+        """
+        A manager is a class-level descriptor, so `objects = SubManager()` on a subclass overrides the
+        `ClassVar` the plugin declared on its parent, and mypy would otherwise reject it as an instance variable.
+        A parent annotating the manager itself decides for its subclasses instead.
+        """
+        manager_expr = self.get_manager_expression(name)
+        if manager_expr is None:
+            return
+        lvalue = manager_expr.lvalues[0]
+        if not isinstance(lvalue, NameExpr) or not isinstance(lvalue.node, Var):
+            return
+        for base in self.model_classdef.info.mro[1:]:
+            base_sym = base.names.get(name)
+            if base_sym is not None and isinstance(base_sym.node, Var):
+                lvalue.node.is_classvar = base_sym.node.is_classvar
+                return
+        lvalue.node.is_classvar = True
 
     def get_manager_expression(self, name: str) -> AssignmentStmt | None:
         # TODO: What happens if the manager is defined multiple times?
@@ -1002,6 +1029,8 @@ class MetaclassAdjustments(ModelClassInitializer):
         dynamically added by Django's model metaclass has been annotated on
         `django.db.models.base.Model`. We remove those attributes and will handle them
         through the plugin.
+        `objects` is left alone: `ModelBase.__getattr__` already restricts it to the class,
+        and `resolve_model_metaclass_fallback` to concrete models.
 
         Configurable with `strict_model_abstract_attrs = false` to skip removing any objects from models.
 
@@ -1023,28 +1052,7 @@ class MetaclassAdjustments(ModelClassInitializer):
 
         Turn this setting off at your own risk.
         """
-        # Mypy does not properly support narrowing in `__getattr__` based on `Literal["objects"]`
-        # so the current `ModelBase.__getattr__` swallows every unknown attributes errors.
-        # `objects` is already inserted by the plugin, so the fallback is not necessary for mypy. We can drop it
-        # TODO: remove once https://github.com/python/mypy/issues/8203 is resolved
-        metaclass = ctx.cls.info.metaclass_type
-        if metaclass is not None and "__getattr__" in metaclass.type.names:
-            del metaclass.type.names["__getattr__"]
-
-        if ctx.cls.fullname != fullnames.MODEL_CLASS_FULLNAME:
-            return
-
-        if not plugin_config.strict_model_abstract_attrs:
-            # `__getattr__` was the only source of `Model.objects`, redeclare it explicitly for this setting.
-            manager = helpers.lookup_fully_qualified_typeinfo(
-                helpers.get_semanal_api(ctx), fullnames.MANAGER_CLASS_FULLNAME
-            )
-            if manager is not None:
-                helpers.add_new_sym_for_info(
-                    ctx.cls.info,
-                    name="objects",
-                    sym_type=Instance(manager, [Instance(ctx.cls.info, [])]),
-                )
+        if ctx.cls.fullname != fullnames.MODEL_CLASS_FULLNAME or not plugin_config.strict_model_abstract_attrs:
             return
 
         for attr_name in ["DoesNotExist", "NotUpdated", "MultipleObjectsReturned"]:
@@ -1128,6 +1136,54 @@ def process_model_class(ctx: ClassDefContext, django_context: DjangoContext) -> 
         except helpers.IncompleteDefnException:
             if not ctx.api.final_iteration:
                 ctx.api.defer()
+
+
+def resolve_model_metaclass_fallback(
+    ctx: AttributeContext, *, attr_name: str, django_context: DjangoContext, plugin_config: DjangoPluginConfig
+) -> MypyType:
+    """
+    mypy ignores the `Literal["objects"]` on `ModelBase.__getattr__` (https://github.com/python/mypy/issues/8203),
+    so reject any other name here, and reject `objects` itself on models Django gives no `objects` to.
+    """
+    missing_on = ctx.type
+    if attr_name == "objects":
+        if not plugin_config.strict_model_abstract_attrs:
+            return ctx.default_attr_type
+        model = model_manager_belongs_to(ctx.default_attr_type)
+        if model is None or has_runtime_manager(model.type, django_context):
+            return ctx.default_attr_type
+        # Name the member at fault when `ctx.type` is a union, e.g. `type[Concrete] | type[Abstract]`
+        missing_on = TypeType.make_normalized(model)
+
+    ctx.api.msg.has_no_attr(ctx.type, missing_on, attr_name, ctx.context)
+    return AnyType(TypeOfAny.from_error)
+
+
+def model_manager_belongs_to(manager_type: MypyType) -> Instance | None:
+    """The model mypy bound `_Self` to in the `Manager[_Self]` that `ModelBase.__getattr__` returns."""
+    manager = get_proper_type(manager_type)
+    if not isinstance(manager, Instance) or not manager.args:
+        return None
+
+    model = get_proper_type(manager.args[0])
+    if isinstance(model, TypeVarType):
+        # `type[T].objects` gives back `Manager[T]`, every model `T` stands for satisfies its bound.
+        model = get_proper_type(model.upper_bound)
+    return model if isinstance(model, Instance) and helpers.is_model_type(model.type) else None
+
+
+def has_runtime_manager(model: TypeInfo, django_context: DjangoContext) -> bool:
+    """Django only contributes `objects` to a model declaring no manager at all, subclasses then inherit it."""
+    model_cls = django_context.get_model_class_by_fullname(model.fullname)
+    if model_cls is not None:
+        return "objects" in model_cls._meta.managers_map
+    # Unregistered, e.g. `Model` as a TypeVar bound: an abstract model only gets `objects` from a concrete parent.
+    return any(
+        base.fullname != fullnames.MODEL_CLASS_FULLNAME
+        and helpers.is_model_type(base)
+        and not helpers.is_abstract_model(base)
+        for base in model.mro
+    )
 
 
 def set_auth_user_model_boolean_fields(ctx: AttributeContext, django_context: DjangoContext) -> MypyType:

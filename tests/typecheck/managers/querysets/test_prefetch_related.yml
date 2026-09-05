@@ -573,7 +573,7 @@
                 class ObjectManager(BaseManager["Object"]): ...
 
                 class Object(BaseObject):
-                    objects: typing.ClassVar = ObjectManager.from_queryset(ObjectQuerySet)()
+                    objects = ObjectManager.from_queryset(ObjectQuerySet)()
 
                 class OtherObject(models.Model): ...
 

@@ -72,3 +72,44 @@ class Author(models.Model):
 
 def override_manager_create_with_incoherent_type_param() -> None:
     assert_type(Review.objects.create(), Review)
+
+
+# ---------------------------------------------------------------------------
+# Replacing the manager inherited from another model
+# ---------------------------------------------------------------------------
+
+
+class Magazine(models.Model):
+    """No declared manager, `objects` only resolves through `ModelBase.__getattr__`."""
+
+
+class MagazineIssueManager(models.Manager["MagazineIssue"]):
+    pass
+
+
+class MagazineIssue(Magazine):
+    objects = MagazineIssueManager()
+
+
+def override_default_manager_in_subclass() -> None:
+    assert_type(MagazineIssue.objects, MagazineIssueManager)
+
+
+class ComicManager(models.Manager["Comic"]):
+    pass
+
+
+class Comic(models.Model):
+    objects = ComicManager()
+
+
+class ComicIssueManager(ComicManager):
+    pass
+
+
+class ComicIssue(Comic):
+    objects = ComicIssueManager()
+
+
+def override_declared_manager_in_subclass() -> None:
+    assert_type(ComicIssue.objects, ComicIssueManager)
