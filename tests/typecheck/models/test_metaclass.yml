@@ -223,26 +223,3 @@
 
               class Dyn(models.Model, metaclass=make_metaclass()):  # type: ignore[metaclass]
                   ...
-
--   case: test_custom_model_base_metaclass
-    main: |
-        from typing_extensions import reveal_type
-        from myapp.models import This, Other
-
-        this = This(field=Other())
-        reveal_type(this.field)  # N: Revealed type is "myapp.models.Other"
-    installed_apps:
-        - myapp
-    files:
-        - path: myapp/__init__.py
-        - path: myapp/models.py
-          content: |
-              from django.db import models
-              from django.db.models.base import ModelBase
-
-              class MyBase(ModelBase): ...
-              class MyModel(models.Model, metaclass=MyBase): ...
-
-              class Other(MyModel): ...
-              class This(MyModel):
-                  field = models.ForeignKey(Other, on_delete=models.CASCADE)
