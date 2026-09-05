@@ -372,7 +372,7 @@ class AddManagers(ModelClassInitializer):
         assert manager_info is not None
         # Reparameterize dynamically created manager with model type
         manager_type = helpers.fill_manager(manager_info, Instance(self.model_classdef.info, []))
-        self.add_new_var_to_model_class(manager_name, manager_type, is_classvar=True)
+        self.add_new_var_to_model_class(manager_name, manager_type)
 
     @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
@@ -380,12 +380,18 @@ class AddManagers(ModelClassInitializer):
 
         incomplete_manager_defs = set()
         for manager_name, manager in model_cls._meta.managers_map.items():
+            if manager.auto_created:
+                # Django's implicit `objects`, already resolved by the `ModelBase.__getattr__` fallback.
+                # Declaring it here would shadow that fallback with a symbol subclasses have to override.
+                continue
+
             manager_node = self.model_classdef.info.get(manager_name)
             manager_fullname = helpers.get_class_fullname(manager.__class__)
             manager_info = self.lookup_manager(manager_fullname, manager)
 
-            if manager_node and manager_node.type is not None:
-                # Manager is already typed -> do nothing unless it's a dynamically generated manager
+            if manager_node and manager_node.type is not None and not manager_node.plugin_generated:
+                # Manager is already typed -> do nothing unless it's a dynamically generated manager.
+                # A manager the plugin declared on a parent is bound to that parent, so it's redeclared below.
                 self.reparametrize_dynamically_created_manager(manager_name, manager_info)
                 continue
 
@@ -397,9 +403,8 @@ class AddManagers(ModelClassInitializer):
                 incomplete_manager_defs.add(manager_name)
                 continue
 
-            assert self.model_classdef.info.self_type is not None
-            manager_type = helpers.fill_manager(manager_info, self.model_classdef.info.self_type)
-            self.add_new_var_to_model_class(manager_name, manager_type, is_classvar=True)
+            manager_type = helpers.fill_manager(manager_info, Instance(self.model_classdef.info, []))
+            self.add_new_var_to_model_class(manager_name, manager_type)
 
         if incomplete_manager_defs:
             if not self.api.final_iteration:
@@ -414,18 +419,20 @@ class AddManagers(ModelClassInitializer):
                 # setting _some_ type
                 fallback_manager_info = self.get_or_create_manager_with_any_fallback()
                 if fallback_manager_info is not None:
-                    assert self.model_classdef.info.self_type is not None
-                    manager_type = helpers.fill_manager(fallback_manager_info, self.model_classdef.info.self_type)
-                    self.add_new_var_to_model_class(manager_name, manager_type, is_classvar=True)
+                    manager_type = helpers.fill_manager(fallback_manager_info, Instance(self.model_classdef.info, []))
+                    self.add_new_var_to_model_class(manager_name, manager_type)
 
-                # Find expression for e.g. `objects = SomeManager()`
+                # Find expression for e.g. `objects = SomeManager()`.
+                # An inherited manager is reported on the model that declares it,
+                # so don't repeat it for every subclass.
                 manager_expr = self.get_manager_expression(manager_name)
-                manager_fullname = f"{self.model_classdef.fullname}.{manager_name}"
-                self.api.fail(
-                    f'Could not resolve manager type for "{manager_fullname}"',
-                    manager_expr or self.ctx.cls,
-                    code=MANAGER_MISSING,
-                )
+                if manager_expr is not None:
+                    manager_fullname = f"{self.model_classdef.fullname}.{manager_name}"
+                    self.api.fail(
+                        f'Could not resolve manager type for "{manager_fullname}"',
+                        manager_expr,
+                        code=MANAGER_MISSING,
+                    )
 
     def get_manager_expression(self, name: str) -> AssignmentStmt | None:
         # TODO: What happens if the manager is defined multiple times?
@@ -1002,6 +1009,8 @@ class MetaclassAdjustments(ModelClassInitializer):
         dynamically added by Django's model metaclass has been annotated on
         `django.db.models.base.Model`. We remove those attributes and will handle them
         through the plugin.
+        `objects` is left alone: `ModelBase.__getattr__` already restricts it to the class,
+        and `resolve_model_metaclass_fallback` to concrete models.
 
         Configurable with `strict_model_abstract_attrs = false` to skip removing any objects from models.
 
@@ -1023,28 +1032,7 @@ class MetaclassAdjustments(ModelClassInitializer):
 
         Turn this setting off at your own risk.
         """
-        # Mypy does not properly support narrowing in `__getattr__` based on `Literal["objects"]`
-        # so the current `ModelBase.__getattr__` swallows every unknown attributes errors.
-        # `objects` is already inserted by the plugin, so the fallback is not necessary for mypy. We can drop it
-        # TODO: remove once https://github.com/python/mypy/issues/8203 is resolved
-        metaclass = ctx.cls.info.metaclass_type
-        if metaclass is not None and "__getattr__" in metaclass.type.names:
-            del metaclass.type.names["__getattr__"]
-
-        if ctx.cls.fullname != fullnames.MODEL_CLASS_FULLNAME:
-            return
-
-        if not plugin_config.strict_model_abstract_attrs:
-            # `__getattr__` was the only source of `Model.objects`, redeclare it explicitly for this setting.
-            manager = helpers.lookup_fully_qualified_typeinfo(
-                helpers.get_semanal_api(ctx), fullnames.MANAGER_CLASS_FULLNAME
-            )
-            if manager is not None:
-                helpers.add_new_sym_for_info(
-                    ctx.cls.info,
-                    name="objects",
-                    sym_type=Instance(manager, [Instance(ctx.cls.info, [])]),
-                )
+        if ctx.cls.fullname != fullnames.MODEL_CLASS_FULLNAME or not plugin_config.strict_model_abstract_attrs:
             return
 
         for attr_name in ["DoesNotExist", "NotUpdated", "MultipleObjectsReturned"]:
@@ -1128,6 +1116,53 @@ def process_model_class(ctx: ClassDefContext, django_context: DjangoContext) -> 
         except helpers.IncompleteDefnException:
             if not ctx.api.final_iteration:
                 ctx.api.defer()
+
+
+def resolve_model_metaclass_fallback(
+    ctx: AttributeContext, *, attr_name: str, plugin_config: DjangoPluginConfig
+) -> MypyType:
+    """
+    `ModelBase.__getattr__` only declares `objects`,
+    but mypy ignores its `Literal["objects"]` restriction and lets it answer for every unknown attribute,
+    so enforce the name here.
+
+    TODO: drop the name check once https://github.com/python/mypy/issues/8203 is resolved.
+    The abstract-model gate stays: a stub can't see `Meta.abstract`, this is what `strict_model_abstract_attrs` is for.
+    """
+    missing_on = ctx.type
+    if attr_name == "objects":
+        model = model_manager_belongs_to(ctx.default_attr_type)
+        if not plugin_config.strict_model_abstract_attrs or model is None or has_runtime_manager(model.type):
+            return ctx.default_attr_type
+        # Name the member at fault when `ctx.type` is a union, e.g. `type[Concrete] | type[Abstract]`
+        missing_on = TypeType.make_normalized(model)
+
+    ctx.api.msg.has_no_attr(ctx.type, missing_on, attr_name, ctx.context)
+    return AnyType(TypeOfAny.from_error)
+
+
+def model_manager_belongs_to(manager_type: MypyType) -> Instance | None:
+    """The model mypy bound `_Self` to in the `Manager[_Self]` that `ModelBase.__getattr__` returns."""
+    manager = get_proper_type(manager_type)
+    if not isinstance(manager, Instance) or not manager.args:
+        return None
+
+    model = get_proper_type(manager.args[0])
+    if isinstance(model, TypeVarType):
+        # `type[T].objects` gives back `Manager[T]`, and every model `T` stands for satisfies its bound,
+        # so the bound decides whether the access is safe.
+        manager = manager.copy_modified(args=[model.upper_bound])
+    return helpers.extract_model_type_from_queryset(manager)
+
+
+def has_runtime_manager(model: TypeInfo) -> bool:
+    """Django only contributes `objects` to concrete models, an abstract one inherits it from a concrete parent."""
+    return any(
+        base.fullname != fullnames.MODEL_CLASS_FULLNAME
+        and helpers.is_model_type(base)
+        and not helpers.is_abstract_model(base)
+        for base in model.mro
+    )
 
 
 def set_auth_user_model_boolean_fields(ctx: AttributeContext, django_context: DjangoContext) -> MypyType:

@@ -53,6 +53,7 @@ from mypy_django_plugin.transformers.models import (
     MetaclassAdjustments,
     handle_annotated_type,
     process_model_class,
+    resolve_model_metaclass_fallback,
     set_auth_user_model_boolean_fields,
 )
 from mypy_django_plugin.transformers.request import check_querydict_is_mutable
@@ -347,6 +348,10 @@ class NewSemanalDjangoPlugin(Plugin):
             fullnames.BASE_MANAGER_CLASS_FULLNAME
         ) and "from_queryset_manager" in helpers.get_django_metadata(info):
             return resolve_manager_method
+
+        # Lookup of a model attribute that only `ModelBase.__getattr__` resolves.
+        if class_name == fullnames.MODEL_METACLASS_FULLNAME and info.get(attr_name) is None:
+            return partial(resolve_model_metaclass_fallback, attr_name=attr_name, plugin_config=self.plugin_config)
 
         if info.has_base(fullnames.STR_PROMISE_FULLNAME):
             return resolve_str_promise_attribute

@@ -36,9 +36,8 @@ def declared_manager_access_on_instance_is_banned() -> None:
 
 
 def default_manager_access_on_instance_is_banned() -> None:
-    # `ModelBase.__getattr__` lives on the metaclass, so instances can't reach it. mypy sees the
-    # per-model attribute the plugin declares instead, and rejects it through `BaseManager.__get__`
-    Post().objects  # type: ignore[arg-type]  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # pyrefly: ignore[missing-attribute]  # ty: ignore[unresolved-attribute]
+    # `ModelBase.__getattr__` lives on the metaclass, so instances can't reach it at all
+    Post().objects  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]  # pyrefly: ignore[missing-attribute]  # ty: ignore[unresolved-attribute]
 
 
 def manager_access_on_class_is_allowed() -> None:

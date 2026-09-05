@@ -308,13 +308,12 @@
         -   path: myapp/__init__.py
         -   path: myapp/models.py
             content: |
-                from typing import ClassVar
                 from django.db import models
                 class ParentOfMyModel4(models.Model):
                     objects = models.Manager()
 
                 class MyModel4(ParentOfMyModel4):
-                    objects: ClassVar[models.Manager["MyModel4"]] = models.Manager["MyModel4"]()
+                    objects: models.Manager["MyModel4"] = models.Manager["MyModel4"]()
 
 # TODO: make it work someday
 #-   case: inheritance_of_two_models_with_custom_objects_manager

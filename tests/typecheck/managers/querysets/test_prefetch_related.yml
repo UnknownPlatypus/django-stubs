@@ -562,7 +562,7 @@
                 import typing
                 from django.db import models
 
-                T = typing.TypeVar("T", bound="models.Model")
+                T = typing.TypeVar("T", bound="models.Model", covariant=True)
                 class BaseManager(models.Manager[T]): ...
 
                 class BaseObject(models.Model):
@@ -573,7 +573,7 @@
                 class ObjectManager(BaseManager["Object"]): ...
 
                 class Object(BaseObject):
-                    objects: typing.ClassVar = ObjectManager.from_queryset(ObjectQuerySet)()
+                    objects = ObjectManager.from_queryset(ObjectQuerySet)()
 
                 class OtherObject(models.Model): ...
 
