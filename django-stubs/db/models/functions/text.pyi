@@ -7,7 +7,7 @@ from django.db.models.expressions import Combinable, Expression, Value
 from django.db.models.sql.compiler import SQLCompiler, _AsSqlType
 from typing_extensions import TypeVar, override
 
-_SubstrOutputField = TypeVar("_SubstrOutputField", bound=models.Field[Any, Any], default=models.CharField)
+_SubstrOutputField = TypeVar("_SubstrOutputField", bound=models.Field, default=models.CharField)
 
 class MySQLSHA2Mixin:
     def as_mysql(self, compiler: SQLCompiler, connection: BaseDatabaseWrapper, **extra_context: Any) -> _AsSqlType: ...
@@ -39,7 +39,7 @@ class Concat(Func):
     def __init__(self, *expressions: Any, **extra: Any) -> None: ...
 
 class Left(Func[_SubstrOutputField]):
-    output_field: ClassVar[models.CharField[Any, Any]]
+    output_field: ClassVar[models.CharField]
     def __init__(
         self,
         expression: Combinable | str,
@@ -52,13 +52,13 @@ class Left(Func[_SubstrOutputField]):
     def as_oracle(self, compiler: SQLCompiler, connection: BaseDatabaseWrapper, **extra_context: Any) -> _AsSqlType: ...
 
 class Length(Transform):
-    output_field: ClassVar[models.IntegerField[Any, Any]]
+    output_field: ClassVar[models.IntegerField]
     def as_mysql(self, compiler: SQLCompiler, connection: BaseDatabaseWrapper, **extra_context: Any) -> _AsSqlType: ...
 
 class Lower(Transform): ...
 
 class LPad(Func):
-    output_field: ClassVar[models.CharField[Any, Any]]
+    output_field: ClassVar[models.CharField]
     def __init__(
         self, expression: Combinable | str, length: Expression | int | None, fill_text: Expression = ..., **extra: Any
     ) -> None: ...
@@ -67,11 +67,11 @@ class LTrim(Transform): ...
 class MD5(OracleHashMixin, Transform): ...
 
 class Ord(Transform):
-    output_field: ClassVar[models.IntegerField[Any, Any]]
+    output_field: ClassVar[models.IntegerField]
     def as_mysql(self, compiler: SQLCompiler, connection: BaseDatabaseWrapper, **extra_context: Any) -> _AsSqlType: ...
 
 class Repeat(Func):
-    output_field: ClassVar[models.CharField[Any, Any]]
+    output_field: ClassVar[models.CharField]
     def __init__(self, expression: Combinable | str, number: Expression | int | None, **extra: Any) -> None: ...
     def as_oracle(self, compiler: SQLCompiler, connection: BaseDatabaseWrapper, **extra_context: Any) -> _AsSqlType: ...
 
@@ -97,13 +97,13 @@ class SHA384(MySQLSHA2Mixin, OracleHashMixin, PostgreSQLSHAMixin, Transform): ..
 class SHA512(MySQLSHA2Mixin, OracleHashMixin, PostgreSQLSHAMixin, Transform): ...
 
 class StrIndex(Func):
-    output_field: ClassVar[models.IntegerField[Any, Any]]
+    output_field: ClassVar[models.IntegerField]
     def as_postgresql(
         self, compiler: SQLCompiler, connection: BaseDatabaseWrapper, **extra_context: Any
     ) -> _AsSqlType: ...
 
 class Substr(Func[_SubstrOutputField]):
-    output_field: ClassVar[models.CharField[Any, Any]]
+    output_field: ClassVar[models.CharField]
     def __init__(
         self,
         expression: Combinable | str,

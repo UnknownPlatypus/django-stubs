@@ -33,7 +33,7 @@ _ChoicesList: TypeAlias = Sequence[_Choice] | Sequence[_ChoiceNamedGroup]
 _LimitChoicesTo: TypeAlias = Q | dict[str, Any]
 _LimitChoicesToCallable: TypeAlias = Callable[[], _LimitChoicesTo]
 
-_F = TypeVar("_F", bound=Field[Any, Any], covariant=True)
+_F = TypeVar("_F", bound=Field, covariant=True)
 
 @type_check_only
 class _FieldDescriptor(Protocol[_F]):
@@ -204,7 +204,7 @@ class Field(RegisterLookupMixin, Generic[_ST, _GT]):
     @type_check_only
     def __get__(self, instance: Any, owner: Any) -> Self: ...
     def check(self, **kwargs: Any) -> list[CheckMessage]: ...
-    def get_col(self, alias: str, output_field: Field[Any, Any] | None = None) -> Col: ...
+    def get_col(self, alias: str, output_field: Field | None = None) -> Col: ...
     @cached_property
     def cached_col(self) -> Col: ...
     def select_format(self, compiler: SQLCompiler, sql: str, params: _ParamsT) -> _AsSqlType: ...
@@ -355,7 +355,7 @@ class BigIntegerField(IntegerField[_ST_Int, _GT_Int]):
     ) -> None: ...
 
 class PositiveIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField[_ST_Int, _GT_Int]):
-    integer_field_class: type[IntegerField[Any, Any]]
+    integer_field_class: type[IntegerField]
     @overload
     def __init__(  # nullable: read and write accept None
         self: PositiveIntegerField[float | int | str | None, int | None],
@@ -376,7 +376,7 @@ class PositiveIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField[_ST_Int, 
     ) -> None: ...
 
 class PositiveSmallIntegerField(PositiveIntegerRelDbTypeMixin, SmallIntegerField[_ST_Int, _GT_Int]):
-    integer_field_class: type[SmallIntegerField[Any, Any]]
+    integer_field_class: type[SmallIntegerField]
     @overload
     def __init__(  # nullable: read and write accept None
         self: PositiveSmallIntegerField[float | int | str | None, int | None],
@@ -397,7 +397,7 @@ class PositiveSmallIntegerField(PositiveIntegerRelDbTypeMixin, SmallIntegerField
     ) -> None: ...
 
 class PositiveBigIntegerField(PositiveIntegerRelDbTypeMixin, BigIntegerField[_ST_Int, _GT_Int]):
-    integer_field_class: type[BigIntegerField[Any, Any]]
+    integer_field_class: type[BigIntegerField]
     @overload
     def __init__(  # nullable: read and write accept None
         self: PositiveBigIntegerField[float | int | str | None, int | None],

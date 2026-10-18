@@ -32,7 +32,7 @@ _RangeT = TypeVar("_RangeT", covariant=True, default=Any)
 
 class RangeField(CheckPostgresInstalledMixin, models.Field[_ST, _RangeT]):
     empty_strings_allowed: bool
-    base_field: type[models.Field[Any, Any]]
+    base_field: type[models.Field]
     range_type: type[_RangeT]
     def get_placeholder_sql(self, value: Unused, compiler: Unused, connection: BaseDatabaseWrapper) -> _AsSqlType: ...
     @override
@@ -47,23 +47,23 @@ class ContinuousRangeField(RangeField[_ST, _RangeT]):
     def __init__(self, *args: Any, default_bounds: str = "[)", **kwargs: Any) -> None: ...
 
 class IntegerRangeField(RangeField[_ST, NumericRange]):
-    base_field: type[models.IntegerField[Any, Any]]
+    base_field: type[models.IntegerField]
     form_field: type[forms.IntegerRangeField]
 
 class BigIntegerRangeField(RangeField[_ST, NumericRange]):
-    base_field: type[models.BigIntegerField[Any, Any]]
+    base_field: type[models.BigIntegerField]
     form_field: type[forms.IntegerRangeField]
 
 class DecimalRangeField(ContinuousRangeField[_ST, NumericRange]):
-    base_field: type[models.DecimalField[Any, Any]]
+    base_field: type[models.DecimalField]
     form_field: type[forms.DecimalRangeField]
 
 class DateTimeRangeField(ContinuousRangeField[_ST, DateTimeTZRange]):
-    base_field: type[models.DateTimeField[Any, Any]]
+    base_field: type[models.DateTimeField]
     form_field: type[forms.DateTimeRangeField]
 
 class DateRangeField(RangeField[_ST, DateRange]):
-    base_field: type[models.DateField[Any, Any]]
+    base_field: type[models.DateField]
     form_field: type[forms.DateRangeField]
 
 class DateTimeRangeContains(PostgresOperatorLookup): ...
@@ -82,27 +82,27 @@ class AdjacentToLookup(PostgresOperatorLookup): ...
 class RangeStartsWith(models.Transform):
     @property
     @override
-    def output_field(self) -> models.Field[Any, Any]: ...
+    def output_field(self) -> models.Field: ...
 
 class RangeEndsWith(models.Transform):
     @property
     @override
-    def output_field(self) -> models.Field[Any, Any]: ...
+    def output_field(self) -> models.Field: ...
 
 class IsEmpty(models.Transform):
-    output_field: ClassVar[models.BooleanField[Any, Any]]
+    output_field: ClassVar[models.BooleanField]
 
 class LowerInclusive(models.Transform):
-    output_field: ClassVar[models.BooleanField[Any, Any]]
+    output_field: ClassVar[models.BooleanField]
 
 class LowerInfinite(models.Transform):
-    output_field: ClassVar[models.BooleanField[Any, Any]]
+    output_field: ClassVar[models.BooleanField]
 
 class UpperInclusive(models.Transform):
-    output_field: ClassVar[models.BooleanField[Any, Any]]
+    output_field: ClassVar[models.BooleanField]
 
 class UpperInfinite(models.Transform):
-    output_field: ClassVar[models.BooleanField[Any, Any]]
+    output_field: ClassVar[models.BooleanField]
 
 __all__ = [
     "BigIntegerRangeField",
