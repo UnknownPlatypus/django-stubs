@@ -287,16 +287,29 @@ def reparameterize_func_output_field(ctx: FunctionContext) -> MypyType:
         return ctx.default_return_type
 
     # Use the output_field argument type to fill the generic param
-    output_field_type = helpers.get_call_argument_type_by_name(ctx, "output_field")
-    if output_field_type is not None:
-        field_type = get_proper_type(output_field_type)
-        if isinstance(field_type, Instance):
-            return default.copy_modified(args=[field_type])
+    output_field_type = get_proper_type(helpers.get_call_argument_type_by_name(ctx, "output_field"))
+    if output_field_type is not None and isinstance(output_field_type, Instance):
+        output_field_type = (
+            helpers.fill_field_defaults(output_field_type.type, helpers.get_typechecker_api(ctx))
+            if all(isinstance(get_proper_type(arg), AnyType) for arg in output_field_type.args)
+            else output_field_type
+        )
+        return default.copy_modified(args=[output_field_type])
 
     return ctx.default_return_type
 
 
-def _resolve_output_field_type(expr_type: MypyType) -> MypyType | None:
+def _field_get_type(field_type: Instance, api: TypeChecker) -> MypyType | None:
+    # Stubs spell unparametrized output fields as `XField[Any, Any]`, read that as "use the PEP 696 defaults".
+    if field_type.args and all(isinstance(get_proper_type(arg), AnyType) for arg in field_type.args):
+        field_type = helpers.fill_field_defaults(field_type.type, api)
+    type_args = helpers.get_field_type_args(field_type)
+    if type_args is not None and not isinstance(type_args.get, AnyType):
+        return type_args.get
+    return None
+
+
+def _resolve_output_field_type(expr_type: MypyType, api: TypeChecker) -> MypyType | None:
     """Try to resolve the Python type for an expression's output_field.
 
     Handles multiple resolution strategies, in order of priority:
@@ -317,9 +330,9 @@ def _resolve_output_field_type(expr_type: MypyType) -> MypyType | None:
     for arg in proper.args:
         arg_proper = get_proper_type(arg)
         if isinstance(arg_proper, Instance) and arg_proper.type.has_base(fullnames.FIELD_FULLNAME):
-            type_args = helpers.get_field_type_args(arg_proper)
-            if type_args is not None and not isinstance(type_args.get, AnyType):
-                return type_args.get
+            get_type = _field_get_type(arg_proper, api)
+            if get_type is not None:
+                return get_type
 
     # Then check static output_field declarations (ClassVar or @property/@cached_property).
     output_field_sym = proper.type.get("output_field")
@@ -336,10 +349,8 @@ def _resolve_output_field_type(expr_type: MypyType) -> MypyType | None:
         if isinstance(func_type, CallableType):
             field_type = get_proper_type(func_type.ret_type)
 
-    if isinstance(field_type, Instance):
-        result = helpers.get_private_descriptor_type(field_type.type, "_pyi_private_get_type", is_nullable=False)
-        if not isinstance(get_proper_type(result), AnyType):
-            return result
+    if isinstance(field_type, Instance) and field_type.type.has_base(fullnames.FIELD_FULLNAME):
+        return _field_get_type(field_type, api)
 
     return None
 
@@ -380,8 +391,9 @@ def gather_expression_types(ctx: MethodContext) -> dict[str, MypyType]:
     # 'Any' as 'TypeOfAny.special_form' mypy doesn't consider the model instance to
     # contain 'Any' and the ambiguity goes away.
     result: dict[str, MypyType] = {}
+    api = helpers.get_typechecker_api(ctx)
     for name, expr_type in kwargs.items():
-        resolved = _resolve_output_field_type(expr_type)
+        resolved = _resolve_output_field_type(expr_type, api)
         if resolved is not None and not isinstance(get_proper_type(resolved), AnyType):
             result[name] = resolved
         else:

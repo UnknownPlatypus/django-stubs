@@ -38,7 +38,7 @@ from mypy.plugin import (
     MethodContext,
 )
 from mypy.semanal import SemanticAnalyzer
-from mypy.typeanal import make_optional_type
+from mypy.typeanal import fix_instance, make_optional_type
 from mypy.types import (
     AnyType,
     CallableType,
@@ -394,12 +394,39 @@ def get_field_type_from_model_type_info(info: TypeInfo | None, field_name: str) 
     field_type = get_proper_type(field_node.type)
     if not isinstance(field_type, Instance):
         return None
-    # Field declares a set and a get type arg. Fallback to `None` when we can't find any args.
+    # Field declares a set and a get type arg (wrappers like ArrayField add more). Fallback to `None` without them.
     # Not every model attribute is a field,
     # a reverse o2o accessor is a two arg descriptor whose args would be misread as set/get types.
-    if len(field_type.args) != 2 or not field_type.type.has_base(fullnames.FIELD_FULLNAME):
+    if len(field_type.args) < 2 or not field_type.type.has_base(fullnames.FIELD_FULLNAME):
         return None
     return field_type
+
+
+def fill_field_defaults(
+    field_info: TypeInfo,
+    api: TypeChecker | SemanticAnalyzer,
+    *,
+    is_set_nullable: bool = False,
+    is_get_nullable: bool = False,
+) -> Instance:
+    """Build an Instance of `field_info` with PEP 696 defaults; fold `| None` into set/get args if asked."""
+    inst = Instance(field_info, ())
+    fix_instance(
+        inst,
+        api.fail,
+        api.note,
+        disallow_any=False,
+        options=api.options,
+        use_generic_error=True,
+    )
+    if inst.args:
+        args = list(inst.args)
+        if is_set_nullable:
+            args[0] = make_optional_type(args[0])
+        if is_get_nullable and len(args) > 1:
+            args[1] = make_optional_type(args[1])
+        inst = inst.copy_modified(args=args)
+    return inst
 
 
 class FieldTypeArgs(NamedTuple):
@@ -407,13 +434,31 @@ class FieldTypeArgs(NamedTuple):
     get: ProperType
 
 
-def get_field_type_args(field_type: Instance) -> FieldTypeArgs | None:
-    """Extract (_ST, _GT) from a Field instance by mapping to the base Field class."""
+def get_field_base_instance(field_type: Instance) -> Instance | None:
+    """Map a Field subclass instance onto the base `Field[_ST, _GT]` it derives from."""
     base_field_info = next((base for base in field_type.type.mro if base.fullname == fullnames.FIELD_FULLNAME), None)
     if base_field_info is None:
         return None
-    mapped = map_instance_to_supertype(field_type, base_field_info)
-    return FieldTypeArgs(set=get_proper_type(mapped.args[0]), get=get_proper_type(mapped.args[1]))
+    return map_instance_to_supertype(field_type, base_field_info)
+
+
+def get_field_type_args(field_type: Instance) -> FieldTypeArgs | None:
+    """Extract (_ST, _GT) from a Field instance by mapping to the base Field class."""
+    base = get_field_base_instance(field_type)
+    if base is None:
+        return None
+    return FieldTypeArgs(set=get_proper_type(base.args[0]), get=get_proper_type(base.args[1]))
+
+
+def has_field_base_type_args(field_type: Instance) -> bool:
+    """Whether the instance's own first two type args are the Field set/get types.
+
+    False for wrapper fields like `ArrayField[_ST_Array, _GT_Array, _NullT]`, whose own args are element types.
+    """
+    field_args = get_field_type_args(field_type)
+    return field_args is not None and (field_args.set, field_args.get) == tuple(
+        get_proper_type(arg) for arg in field_type.args[:2]
+    )
 
 
 def get_nested_meta_node_for_current_class(info: TypeInfo) -> TypeInfo | None:
@@ -547,10 +592,19 @@ def convert_any_to_type(typ: MypyType, referred_to_type: MypyType) -> MypyType:
     return typ
 
 
-def reparametrize_field_type(field_type: Instance, set_type: MypyType, get_type: MypyType) -> Instance:
-    """Replace `Any` placeholders in the set/get type args of a Field Instance, preserving any additional args."""
+def reparametrize_field_type(
+    field_type: Instance, set_type: MypyType, get_type: MypyType, *, is_nullable: bool | None = None
+) -> Instance:
+    """Replace the set/get type args of a Field Instance, preserving any additional args.
+
+    Uses `convert_any_to_type` to substitute `Any` placeholders in the existing args;
+    when *is_nullable* is true the resulting set/get types are made optional.
+    """
     new_set_type = convert_any_to_type(field_type.args[0], set_type)
     new_get_type = convert_any_to_type(field_type.args[1], get_type)
+    if is_nullable:
+        new_set_type = make_optional_type(new_set_type)
+        new_get_type = make_optional_type(new_get_type)
     return field_type.copy_modified(args=[new_set_type, new_get_type, *field_type.args[2:]])
 
 

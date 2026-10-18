@@ -27,8 +27,8 @@ if sys.version_info >= (3, 12):
 
 
 def test_related() -> None:
-    assert_type(Book().author, Author)  # pyright: ignore[reportAssertTypeFailure]  # ty: ignore[type-assertion-failure]
-    assert_type(Profile().user, Author)  # pyright: ignore[reportAssertTypeFailure]  # ty: ignore[type-assertion-failure]
+    assert_type(Book().author, Author)  # ty: ignore[type-assertion-failure] # pyright: ignore[reportAssertTypeFailure]
+    assert_type(Profile().user, Author)  # ty: ignore[type-assertion-failure] # pyright: ignore[reportAssertTypeFailure]
 
 
 def single_type_arg_is_also_the_get_type(fk: models.ForeignKey[Author], book: Book) -> None:
