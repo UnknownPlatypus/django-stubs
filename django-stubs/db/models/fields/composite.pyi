@@ -19,9 +19,11 @@ class CompositeAttribute:
     @property
     def attnames(self) -> list[str]: ...
     def __get__(self, instance: Model, cls: type[Model] | None = None) -> tuple[Any, ...]: ...
-    def __set__(self, instance: Model, values: list[Any] | tuple[Any] | None) -> None: ...
+    def __set__(self, instance: Model, values: list[Any] | tuple[Any, ...] | None) -> None: ...
 
-class CompositePrimaryKey(Field[Any, Any]):
+class CompositePrimaryKey(Field[list[Any] | tuple[Any, ...] | None, tuple[Any, ...]]):
+    _pyi_private_set_type: list[Any] | tuple[Any, ...] | None
+    _pyi_private_get_type: tuple[Any, ...]
     field_names: tuple[str]
     descriptor_class: type[CompositeAttribute]
     column: None
