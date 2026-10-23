@@ -11,7 +11,7 @@ from django.db.models.expressions import Expression
 from django.db.models.fields import NOT_PROVIDED, Field, _ErrorMessagesMapping
 from django.db.models.query_utils import DeferredAttribute
 from django.db.models.utils import AltersData
-from django.utils.choices import _Choices
+from django.utils.choices import _ChoicesInput
 from django.utils.functional import _StrOrPromise
 from typing_extensions import TypeVar, override
 
@@ -81,7 +81,7 @@ class FileField(Field[Any, Any]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
+        choices: _ChoicesInput | None = ...,
         help_text: _StrOrPromise = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,

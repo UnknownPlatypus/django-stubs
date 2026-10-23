@@ -12,7 +12,7 @@ from django.db.models.fields import NOT_PROVIDED, _ErrorMessagesDict, _ErrorMess
 from django.db.models.fields.mixins import CheckFieldDefaultMixin
 from django.db.models.lookups import Transform
 from django.db.models.sql.compiler import _AsSqlType
-from django.utils.choices import _Choices
+from django.utils.choices import _ChoicesInput
 from django.utils.functional import _StrOrPromise
 from typing_extensions import TypeVar, override
 
@@ -52,7 +52,7 @@ class ArrayField(CheckPostgresInstalledMixin, CheckFieldDefaultMixin, Field[_ST,
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
+        choices: _ChoicesInput | None = ...,
         help_text: _StrOrPromise = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,

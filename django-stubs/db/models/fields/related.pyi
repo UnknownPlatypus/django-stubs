@@ -22,7 +22,7 @@ from django.db.models.fields.reverse_related import OneToOneRel as OneToOneRel
 from django.db.models.query_utils import FilteredRelation, PathInfo, Q
 from django.db.models.sql.where import WhereNode
 from django.forms.widgets import Widget
-from django.utils.choices import _Choices
+from django.utils.choices import _ChoicesInput
 from django.utils.functional import _StrOrPromise, cached_property
 from typing_extensions import TypeVar, override
 
@@ -69,7 +69,7 @@ class RelatedField(FieldCacheMixin, Field[_ST, _GT]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
+        choices: _ChoicesInput | None = ...,
         help_text: _StrOrPromise = ...,
         db_column: str | None = ...,
         db_tablespace: str | None = ...,
@@ -125,7 +125,7 @@ class ForeignObject(RelatedField[_ST, _GT]):
         editable: bool = ...,
         auto_created: bool = ...,
         serialize: bool = ...,
-        choices: _Choices | None = ...,
+        choices: _ChoicesInput | None = ...,
         help_text: _StrOrPromise = ...,
         db_column: str | None = ...,
         db_tablespace: str | None = ...,
@@ -214,7 +214,7 @@ class ForeignKey(ForeignObject[_ST, _GT]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
+        choices: _ChoicesInput | None = ...,
         help_text: _StrOrPromise = ...,
         db_column: str | None = ...,
         db_tablespace: str | None = ...,
@@ -287,7 +287,7 @@ class OneToOneField(ForeignKey[_ST, _GT]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
+        choices: _ChoicesInput | None = ...,
         help_text: _StrOrPromise = ...,
         db_column: str | None = ...,
         db_tablespace: str | None = ...,
@@ -353,7 +353,7 @@ class ManyToManyField(RelatedField, Generic[_To, _Through]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
+        choices: _ChoicesInput | None = ...,
         help_text: _StrOrPromise = ...,
         db_column: str | None = ...,
         db_tablespace: str | None = ...,

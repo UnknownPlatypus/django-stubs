@@ -18,7 +18,7 @@ from django.db.models.expressions import Expression
 from django.db.models.fields import NOT_PROVIDED, Field, _ErrorMessagesMapping
 from django.db.models.sql.compiler import _AsSqlType
 from django.forms.widgets import Widget
-from django.utils.choices import _Choices
+from django.utils.choices import _ChoicesInput
 from django.utils.functional import _StrOrPromise
 from typing_extensions import TypeVar, override
 
@@ -63,7 +63,7 @@ class BaseSpatialField(Field[_ST, _GT]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
+        choices: _ChoicesInput | None = ...,
         help_text: _StrOrPromise = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
@@ -113,7 +113,7 @@ class GeometryField(BaseSpatialField[_ST, _GT]):
         unique_for_date: str | None = ...,
         unique_for_month: str | None = ...,
         unique_for_year: str | None = ...,
-        choices: _Choices | None = ...,
+        choices: _ChoicesInput | None = ...,
         help_text: _StrOrPromise = ...,
         db_column: str | None = ...,
         db_comment: str | None = ...,
