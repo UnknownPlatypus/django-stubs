@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, Any
 
 from django.contrib import admin, messages
@@ -224,3 +225,25 @@ class ActionAdmin(admin.ModelAdmin[ValidActionModel]):
     # Normally a method would be passed by name as a string, but defining `actions` after the
     # method makes it possible to ensure that it is typed correctly.
     actions = [valid_action_function, valid_action_method]  # ty: ignore[invalid-assignment]
+
+
+# `Action` and `action_location` are Django 6.0+, which requires Python 3.12
+if sys.version_info >= (3, 12):
+
+    class OverrideActionsAdmin(admin.ModelAdmin[ValidActionModel]):
+        @admin.action(description="Archive")
+        def archive(self, request: HttpRequest, queryset: QuerySet[ValidActionModel]) -> None: ...
+
+        @override
+        def get_actions(
+            self, request: HttpRequest, action_location: admin.ActionLocation = admin.ActionLocation.CHANGE_LIST
+        ) -> dict[str, admin.Action]:
+            actions = super().get_actions(request, action_location)
+            actions["archive"] = admin.Action(
+                func=OverrideActionsAdmin.archive,
+                name="archive",
+                description="Archive",
+                plural_description="Archive",
+                locations=[action_location],
+            )
+            return actions
