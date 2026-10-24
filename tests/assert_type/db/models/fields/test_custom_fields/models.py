@@ -95,11 +95,11 @@ class NullableUser(models.Model):
 
 def custom_fields_with_null_true() -> None:
     user = NullableUser()
-    assert_type(user.my_custom_field5, CustomFieldValue)  # pyrefly: ignore[assert-type]
-    assert_type(user.my_custom_field6, CustomFieldValue)  # pyrefly: ignore[assert-type]
-    assert_type(user.my_custom_field7, bool)  # pyrefly: ignore[assert-type]
-    assert_type(user.my_custom_field8, CustomFieldValue)  # pyrefly: ignore[assert-type]
-    assert_type(user.my_custom_field9, CustomFieldValue)
+    assert_type(user.my_custom_field5, CustomFieldValue | None)  # type: ignore[assert-type]  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
+    assert_type(user.my_custom_field6, CustomFieldValue | None)  # type: ignore[assert-type]  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
+    assert_type(user.my_custom_field7, bool | None)  # type: ignore[assert-type]  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
+    assert_type(user.my_custom_field8, CustomFieldValue | None)  # type: ignore[assert-type]  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
+    assert_type(user.my_custom_field9, CustomFieldValue | None)  # type: ignore[assert-type]  # pyright: ignore[reportAssertTypeFailure]  # pyrefly: ignore[assert-type]  # ty: ignore[type-assertion-failure]
     assert_type(user.my_custom_field12, CustomFieldValue | None)
     assert_type(user.my_custom_field13, CustomFieldValue | None)  # pyrefly: ignore[assert-type]
     assert_type(user.my_custom_field14, bool | None)  # pyrefly: ignore[assert-type]
@@ -150,7 +150,7 @@ def custom_fields_with_any_type_args() -> None:
     assert_type(user.my_custom_field_any1, Any)
     assert_type(user.my_custom_field_any2, Any)
     assert_type(user.my_custom_field_any3, Any | None)  # pyright: ignore[reportAssertTypeFailure]  # ty: ignore[type-assertion-failure]
-    assert_type(user.my_custom_field_any4, Any)  # pyrefly: ignore[assert-type]
+    assert_type(user.my_custom_field_any4, Any | None)  # type: ignore[assert-type]  # pyright: ignore[reportAssertTypeFailure]  # ty: ignore[type-assertion-failure]
 
 
 # Aliased base fields
