@@ -450,6 +450,13 @@ Django `models.Field` (and subclasses) are generic types with two parameters:
 - `_ST`: type that can be used when setting a value
 - `_GT`: type that will be returned when getting a value
 
+The `null=...` flag is resolved at the call site by the fields' constructor
+overloads: `IntegerField(null=True)` is an
+`IntegerField[float | int | str | None, int | None]`. This works on every type
+checker, without the mypy plugin. Narrowing based on `primary_key=` or
+`default=` (e.g. accepting `None` on assignment for the `obj.pk = None` clone
+idiom) is only provided by the mypy plugin.
+
 When you create a subclass, you have two options depending on how strict you want
 the type to be for consumers of your custom field.
 
@@ -495,6 +502,70 @@ User().my_field = "12"  # E: Incompatible types in assignment (expression has ty
 ```
 
 See mypy section on [generic classes subclasses](https://mypy.readthedocs.io/en/stable/generics.html#defining-subclasses-of-generic-classes).
+
+#### `null=True` on a custom field, for every type checker
+
+To make `MyIntegerField(null=True)` resolve precisely on all type checkers
+(not only mypy with the plugin), redeclare constructor overloads with
+self-annotations, the same mechanism the bundled stubs use. `FieldInitKwargs`
+is a type-check-only `TypedDict` of the keyword arguments shared by every `Field`,
+so the overloads stay short while every keyword argument stays checked.
+`primary_key`, `max_length` and `db_default` vary per field, so they are spelled out:
+
+```python
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Literal, overload
+from typing_extensions import TypeVar, Unpack, assert_type
+from django.db import models
+
+if TYPE_CHECKING:
+    from django.db.models.fields import FieldInitKwargs
+
+_ST = TypeVar("_ST", contravariant=True, default=float | int | str)
+_GT = TypeVar("_GT", covariant=True, default=int)
+
+
+class MyIntegerField(models.IntegerField[_ST, _GT]):
+    @overload
+    def __init__(  # nullable: read and write accept None
+        self: MyIntegerField[float | int | str | None, int | None],
+        verbose_name: str | None = None,
+        name: str | None = None,
+        *,
+        null: Literal[True],
+        primary_key: bool = False,
+        max_length: int | None = None,
+        db_default: Any = ...,
+        **kwargs: Unpack[FieldInitKwargs],
+    ) -> None: ...
+    @overload
+    def __init__(  # fallback: dynamic flags keep the class defaults
+        self,
+        verbose_name: str | None = None,
+        name: str | None = None,
+        *,
+        null: bool = False,
+        primary_key: bool = False,
+        max_length: int | None = None,
+        db_default: Any = ...,
+        **kwargs: Unpack[FieldInitKwargs],
+    ) -> None: ...
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class User(models.Model):
+    custom_int = MyIntegerField(null=False)
+    custom_int_nullable = MyIntegerField(null=True)
+
+
+assert_type(User().custom_int, int)
+assert_type(User().custom_int_nullable, int | None)
+```
+
+If your field adds its own constructor arguments, declare them explicitly next
+to `null` in both overloads.
 
 ## Related projects
 
