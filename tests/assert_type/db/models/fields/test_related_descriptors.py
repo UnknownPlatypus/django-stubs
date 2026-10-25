@@ -45,3 +45,22 @@ class WithPassThroughDescriptor(models.Model):
 assert_type(WithPassThroughDescriptor.passthrough_descriptor, PassThroughDescriptor[MyModel])
 
 assert_type(MyModel._default_manager.__class__, type[models.Manager[MyModel]])
+
+
+class Tag(models.Model): ...
+
+
+class Post(models.Model):
+    tags = models.ManyToManyField(Tag, through="Tagging")
+
+
+class Tagging(models.Model):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE)
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
+
+
+class Article(models.Model):
+    tags = models.ManyToManyField(Tag, through=Tagging)
+
+
+assert_type(Article.tags.through, type[Tagging])  # pyrefly: ignore[assert-type]
