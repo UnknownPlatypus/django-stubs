@@ -36,3 +36,5 @@ form.add_error("field", {"field": ValidationError("error")})  # type: ignore[cal
 form.add_error("field", {"field": ["error"]})  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue,reportArgumentType]  # pyrefly: ignore[no-matching-overload]  # ty: ignore[no-matching-overload]
 form.add_error("field", {"field": [lazystr("error")]})  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue,reportArgumentType]  # pyrefly: ignore[no-matching-overload]  # ty: ignore[no-matching-overload]
 form.add_error("field", {"field": [ValidationError("error")]})  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue,reportArgumentType]  # pyrefly: ignore[no-matching-overload]  # ty: ignore[no-matching-overload]
+
+_unused: int = 1  # ty: ignore[invalid-assignment]
