@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, Generic, Literal, Self, overload
+from typing import Any, Generic, Literal, Never, Self, overload
 from uuid import UUID
 
 from django import forms
@@ -258,7 +258,8 @@ class OneToOneField(ForeignKey[_ST_contra, _GT_co]):
 _Through = TypeVar("_Through", bound=Model, default=Any)
 _To = TypeVar("_To", bound=Model)
 
-class ManyToManyField(RelatedField, Generic[_To, _Through]):
+# The get type stays `Any`: the attribute reads as a manager but `value_from_object` returns a list, both are typed below.
+class ManyToManyField(RelatedField[Never, Any], Generic[_To, _Through]):
     has_null_arg: bool
     swappable: bool
 
@@ -331,6 +332,8 @@ class ManyToManyField(RelatedField, Generic[_To, _Through]):
     def m2m_reverse_field_name(self) -> str: ...
     def m2m_target_field_name(self) -> str: ...
     def m2m_reverse_target_field_name(self) -> str: ...
+    @override
+    def value_from_object(self, obj: Model) -> list[_To]: ...
     @override
     def formfield(
         self,
