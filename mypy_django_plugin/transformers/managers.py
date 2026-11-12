@@ -40,7 +40,7 @@ from mypy_django_plugin.lib import fullnames, helpers
 
 if TYPE_CHECKING:
     from mypy.checker import TypeChecker
-    from mypy.plugin import AttributeContext, ClassDefContext, DynamicClassDefContext
+    from mypy.plugin import AttributeContext, ClassDefContext, DynamicClassDefContext, MethodContext
     from mypy.semanal import SemanticAnalyzer
 
 MANAGER_METHODS_RETURNING_QUERYSET: Final = frozenset(
@@ -514,11 +514,21 @@ def reparametrize_generic_class(
     bind_explicit_args: bool = False,
 ) -> None:
     """
-    Add implicit generics to classes that are defined without generic.
+    Add implicit generics to `Manager`, `QuerySet` and `Field` subclasses that are defined without generic,
+    so the type arguments filled in by the plugin propagate (`.annotate()` / `.values()` rows, field `__get__`).
+
+    Eg.
+
+        class MyManager(models.Manager): ...  # as `models.Manager[_T_co]`
+        class HTMLField(models.TextField): ...  # as `models.TextField[_ST_Text, _GT_Text]`
+        class MyQuerySet(models.QuerySet): ...  # as `models.QuerySet[_Model_co, _Row_co]`
 
     When ``bind_explicit_args`` is True, also reparametrize partially or
     fully-explicit parametrizations by binding each explicit arg as both
-    the bound and the PEP 696 default of a synthesized covariant TypeVar.
+    the bound and the PEP 696 default of a synthesized covariant TypeVar:
+
+        class BookQuerySet(models.QuerySet["Book"]): ...
+        # as `models.QuerySet[_Model_co, _Row_co]`, both TypeVars bounded by and defaulting to `Book`
 
     Note that this does not happen if mypy is run with disallow_any_generics = True,
     as not specifying the generic type is then considered an error.
@@ -574,69 +584,32 @@ def reparametrize_generic_class(
     class_info.node.add_type_vars()
 
 
-def reparametrize_any_queryset_hook(ctx: ClassDefContext) -> None:
+def refine_related_manager(ctx: MethodContext) -> MypyType:
     """
-    Add implicit generics to QuerySet subclasses that are defined without generic.
-    This is required for `.annotate` / `.values` call to update the typevars accordingly.
-
-    Eg.
-
-        class MyQuerySet(models.QuerySet): ...
-
-    is interpreted as:
-
-        _Model_co = TypeVar('_Model_co', bound=Model, covariant=True)
-        _Row_co = TypeVar('_Row_co', covariant=True, default=_Model_co)
-        class MyQuerySet(models.QuerySet[_Model_co, _Row_co]): ...
-
-    And
-
-        class BookQuerySet(models.QuerySet["Book"]): ...
-
-    is interpreted as:
-
-        _Model_co = TypeVar('_Model_co', bound=Book, covariant=True, default=Book)
-        _Row_co = TypeVar('_Row_co', bound=Book, covariant=True, default=Book)
-        class BookQuerySet(models.QuerySet[_Model_co, _Row_co]): ...
-
-    Note that this does not happen if mypy is run with disallow_any_generics = True,
-    as not specifying the generic type is then considered an error.
+    Like Django, build the `RelatedManager` (reverse foreign key) or `ManyRelatedManager` (many-to-many)
+    returned by a related descriptor's `__get__` from the related model's default manager.
     """
-    reparametrize_generic_class(ctx, fullnames.QUERYSET_CLASS_FULLNAME, bind_explicit_args=True)
+    manager = get_proper_type(ctx.default_return_type)
+    if not (
+        isinstance(manager, Instance)
+        and manager.args
+        and isinstance(to := get_proper_type(manager.args[0]), Instance)
+        and helpers.is_model_type(to.type)
+    ):
+        return ctx.default_return_type
 
-
-def reparametrize_any_manager_hook(ctx: ClassDefContext) -> None:
-    """
-    Add implicit generics to manager classes that are defined without generic.
-
-    Eg.
-
-        class MyManager(models.Manager): ...
-
-    is interpreted as:
-
-        _T = TypeVar('_T', covariant=True)
-        class MyManager(models.Manager[_T]): ...
-
-    Note that this does not happen if mypy is run with disallow_any_generics = True,
-    as not specifying the generic type is then considered an error.
-    """
-    reparametrize_generic_class(ctx, fullnames.BASE_MANAGER_CLASS_FULLNAME)
-
-
-def reparametrize_any_field_hook(ctx: ClassDefContext) -> None:
-    """
-    Add implicit generics to Field subclasses that omit the parent's TypeVars.
-
-    Eg.
-
-        class HTMLField(models.TextField): ...
-
-    is interpreted as:
-
-        class HTMLField(models.TextField[_ST_Text, _GT_Text]): ...
-
-    Without this, mypy treats `HTMLField` as non-Generic and the set/get args
-    assigned by the field function hook don't propagate through `__get__`.
-    """
-    reparametrize_generic_class(ctx, fullnames.FIELD_FULLNAME)
+    api = helpers.get_typechecker_api(ctx)
+    if manager.type.fullname == fullnames.RELATED_MANAGER_CLASS:
+        related_manager_info = helpers.get_reverse_manager_info(api, to.type, derived_from="_default_manager")
+        args: list[MypyType] = []
+    elif (
+        manager.type.fullname == fullnames.MANY_RELATED_MANAGER
+        and len(manager.args) >= 2
+        and isinstance(through := get_proper_type(manager.args[1]), Instance)
+        and helpers.is_model_type(through.type)
+    ):
+        related_manager_info = helpers.get_many_to_many_manager_info(api, to=to.type, derived_from="_default_manager")
+        args = [through]
+    else:
+        return ctx.default_return_type
+    return ctx.default_return_type if related_manager_info is None else Instance(related_manager_info, args)

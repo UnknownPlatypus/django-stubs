@@ -31,8 +31,6 @@ from mypy_django_plugin.transformers import (
     fields,
     forms,
     init_create,
-    manytomany,
-    manytoone,
     meta,
     orm_lookups,
     querysets,
@@ -43,9 +41,8 @@ from mypy_django_plugin.transformers.auth import get_user_model
 from mypy_django_plugin.transformers.managers import (
     add_as_manager_to_queryset_class,
     create_new_manager_class_from_from_queryset_method,
-    reparametrize_any_field_hook,
-    reparametrize_any_manager_hook,
-    reparametrize_any_queryset_hook,
+    refine_related_manager,
+    reparametrize_generic_class,
     resolve_manager_method,
 )
 from mypy_django_plugin.transformers.models import MetaclassAdjustments, handle_annotated_type, process_model_class
@@ -59,6 +56,13 @@ if TYPE_CHECKING:
 
 
 _APPS_MODULES: Final = frozenset({"django.apps", "django.apps.registry"})
+_RELATED_MANAGER_DESCRIPTORS: Final = frozenset(
+    {
+        fullnames.MANYTOMANY_FIELD_FULLNAME,
+        fullnames.MANY_TO_MANY_DESCRIPTOR,
+        fullnames.REVERSE_MANY_TO_ONE_DESCRIPTOR,
+    }
+)
 
 
 class NewSemanalDjangoPlugin(Plugin):
@@ -159,7 +163,7 @@ class NewSemanalDjangoPlugin(Plugin):
             return partial(fields.transform_into_proper_return_type, django_context=self.django_context)
 
         if helpers.is_model_type(info):
-            return partial(init_create.typecheck_model_init, django_context=self.django_context)
+            return partial(init_create.typecheck_model_method, django_context=self.django_context, method="__init__")
 
         if info.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME):
             return querysets.determine_proper_manager_type
@@ -182,8 +186,10 @@ class NewSemanalDjangoPlugin(Plugin):
             ),
             "alias": partial(querysets.extract_proper_type_queryset_annotate, django_context=self.django_context),
             "annotate": partial(querysets.extract_proper_type_queryset_annotate, django_context=self.django_context),
-            "create": partial(init_create.typecheck_model_create, django_context=self.django_context),
-            "acreate": partial(init_create.typecheck_model_acreate, django_context=self.django_context),
+            "create": partial(init_create.typecheck_model_method, django_context=self.django_context, method="create"),
+            "acreate": partial(
+                init_create.typecheck_model_method, django_context=self.django_context, method="acreate"
+            ),
             "filter": typecheck_filtering_method,
             "get": typecheck_filtering_method,
             "aget": typecheck_filtering_method,
@@ -230,12 +236,7 @@ class NewSemanalDjangoPlugin(Plugin):
             return None
 
         if method_name == "__get__":
-            hooks = {
-                fullnames.MANYTOMANY_FIELD_FULLNAME: manytomany.refine_many_to_many_related_manager,
-                fullnames.MANY_TO_MANY_DESCRIPTOR: manytomany.refine_many_to_many_related_manager,
-                fullnames.REVERSE_MANY_TO_ONE_DESCRIPTOR: manytoone.refine_many_to_one_related_manager,
-            }
-            return hooks.get(class_fullname)
+            return refine_related_manager if class_fullname in _RELATED_MANAGER_DESCRIPTORS else None
 
         info = self._get_typeinfo_or_none(class_fullname)
         if not info:
@@ -276,13 +277,17 @@ class NewSemanalDjangoPlugin(Plugin):
             return None
 
         if info.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME):
-            return reparametrize_any_manager_hook
+            return partial(reparametrize_generic_class, base_class_fullname=fullnames.BASE_MANAGER_CLASS_FULLNAME)
 
         if info.has_base(fullnames.QUERYSET_CLASS_FULLNAME):
-            return reparametrize_any_queryset_hook
+            return partial(
+                reparametrize_generic_class,
+                base_class_fullname=fullnames.QUERYSET_CLASS_FULLNAME,
+                bind_explicit_args=True,
+            )
 
         if info.has_base(fullnames.FIELD_FULLNAME):
-            return reparametrize_any_field_hook
+            return partial(reparametrize_generic_class, base_class_fullname=fullnames.FIELD_FULLNAME)
 
         return None
 
