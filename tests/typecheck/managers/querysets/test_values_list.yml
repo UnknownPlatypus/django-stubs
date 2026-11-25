@@ -374,3 +374,22 @@
 
                 class Blog(models.Model):
                     kind: Kind = models.CharField(max_length=10, choices=Kind.choices)  # type: ignore[assignment]
+-   case: values_list_file_field_reads_the_stored_name
+    main: |
+        from typing_extensions import reveal_type
+        from myapp.models import Blog
+        reveal_type(Blog.objects.values_list("logo", flat=True).get())  # N: Revealed type is "str"
+        reveal_type(Blog.objects.values_list("doc", flat=True).get())  # N: Revealed type is "str | None"
+        reveal_type(Blog.objects.values("logo", "doc").get())  # N: Revealed type is "TypedDict({'logo': str, 'doc': str | None})"
+        reveal_type(Blog.objects.values_list(named=True).get())  # N: Revealed type is "tuple[int, str, str | None, fallback=main.Row]"
+    installed_apps:
+        - myapp
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+
+                class Blog(models.Model):
+                    logo = models.ImageField()
+                    doc = models.FileField(null=True)

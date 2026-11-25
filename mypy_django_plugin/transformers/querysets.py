@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Final, Literal
 
 from django.core.exceptions import FieldDoesNotExist, FieldError
 from django.db.models.constants import LOOKUP_SEP
+from django.db.models.fields.files import FileField
 from django.db.models.fields.related import RelatedField
 from django.db.models.fields.related_descriptors import (
     ForwardManyToOneDescriptor,
@@ -31,6 +32,7 @@ from mypy.nodes import (
     Var,
 )
 from mypy.subtypes import is_subtype
+from mypy.typeanal import make_optional_type
 from mypy.types import (
     AnyType,
     CallableType,
@@ -59,7 +61,9 @@ if TYPE_CHECKING:
     from collections.abc import Collection, Sequence
 
     from django.db.models.base import Model
+    from django.db.models.fields import Field
     from mypy.checker import TypeChecker
+    from mypy.nodes import Context
     from mypy.plugin import FunctionContext, MethodContext
 
     from mypy_django_plugin.lib.helpers import DjangoModel
@@ -90,7 +94,15 @@ def get_field_type_from_lookup(
 
     api = helpers.get_typechecker_api(ctx)
     model_info = helpers.lookup_class_typeinfo(api, model_cls)
-    return helpers.get_field_get_type(api, ctx.context, model_info, lookup_field.attname)
+    return _get_column_type(api, ctx.context, model_info, lookup_field)
+
+
+def _get_column_type(api: TypeChecker, context: Context, model_info: TypeInfo | None, field: Field) -> MypyType:
+    # `values()` reads the raw column, so a file field gives the stored name, not the `FieldFile` its descriptor wraps.
+    if isinstance(field, FileField):
+        str_type = api.named_generic_type("builtins.str", [])
+        return make_optional_type(str_type) if field.null else str_type
+    return helpers.get_field_get_type(api, context, model_info, field.attname)
 
 
 def get_values_list_row_type(
@@ -117,8 +129,7 @@ def get_values_list_row_type(
         if named:
             column_types: dict[str, MypyType] = {}
             for field in django_context.get_model_fields(model_cls):
-                column_type = helpers.get_field_get_type(typechecker_api, ctx.context, model_info, field.attname)
-                column_types[field.attname] = column_type
+                column_types[field.attname] = _get_column_type(typechecker_api, ctx.context, model_info, field)
             column_types.update(annotation_types)
             return helpers.make_oneoff_named_tuple(typechecker_api, "Row", column_types)
         # flat=False, named=False, all fields
