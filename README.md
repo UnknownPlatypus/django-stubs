@@ -321,7 +321,7 @@ class MyManager(models.Manager):
 
 you get a similar error:
 
-> error: Return type "MyQuerySet[Any, Any]" of "get_queryset" incompatible with return type "_QS" in supertype "django.db.models.manager.BaseManager"
+> error: Return type "MyQuerySet[Any, Any]" of "get_queryset" incompatible with return type "_QS_co" in supertype "django.db.models.manager.BaseManager"
 
 To fix this issue, pass the model to **both** the queryset and the manager, and the queryset to the manager:
 
